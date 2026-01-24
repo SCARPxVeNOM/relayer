@@ -32,6 +32,9 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
       decryptPermission={DecryptPermission.UponRequest}
       network={WalletAdapterNetwork.Testnet}
       autoConnect={false}
+      onError={(error) => {
+        console.error('Wallet adapter error:', error);
+      }}
     >
       <WalletModalProvider>
         {children}
