@@ -25,11 +25,14 @@ export default function MissionPage() {
         zkSystemStatus: string;
     } | null>(null);
     const [version, setVersion] = useState<{ protocol: string; gateway: string } | null>(null);
+    const [telemetryLive, setTelemetryLive] = useState(false);
+    const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
     // Poll telemetry and version
     useEffect(() => {
         const fetchAll = async () => {
             try {
+                setTelemetryLive(false);
                 const [telemetryData, versionData] = await Promise.allSettled([
                     apiClient.getTelemetry(),
                     apiClient.getVersion().catch(() => ({ protocol: 'ZK-7', gateway: 'ORBITAL-7', build: 'v1.0.4-beta' }))
@@ -37,6 +40,8 @@ export default function MissionPage() {
 
                 if (telemetryData.status === 'fulfilled') {
                     setTelemetry(telemetryData.value);
+                    setTelemetryLive(true);
+                    setLastUpdate(new Date());
                 } else {
                     setTelemetry({
                         bridgeLink: 'DEGRADED',
@@ -60,6 +65,7 @@ export default function MissionPage() {
                     zkSystemStatus: 'UNKNOWN',
                 });
                 setVersion({ protocol: 'ZK-7', gateway: 'ORBITAL-7' });
+                setTelemetryLive(false);
             }
         };
 
@@ -95,10 +101,17 @@ export default function MissionPage() {
 
                 {/* MISSION HEADER */}
                 <div className="mb-20 space-y-4">
-                    <div className="inline-flex items-center gap-3 px-4 py-1.5 border border-primary/30 bg-primary/5">
-                        <Target className="w-4 h-4 text-primary" />
-                        <span className="hud-text text-primary text-[10px]">OPERATIONAL_DIRECTIVE_V.9</span>
-                    </div>
+                    <button
+                        onClick={() => {
+                            // Show version info in console for demo
+                            console.log('Version Info:', version);
+                        }}
+                        className="inline-flex items-center gap-3 px-4 py-1.5 border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 cursor-pointer group">
+                        <Target className="w-4 h-4 text-primary animate-pulse" />
+                        <span className="hud-text text-primary text-[10px] group-hover:tracking-[0.3em] transition-all">
+                            OPERATIONAL_DIRECTIVE_V.{version?.protocol?.split('-')[1] || '5'}
+                        </span>
+                    </button>
                     <h1 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter leading-none">
                         Our <span className="text-primary drop-shadow-[0_0_30px_rgba(255,77,0,0.5)]">Mission</span>
                     </h1>
@@ -135,46 +148,135 @@ export default function MissionPage() {
                         </div>
                     </div>
 
-                    {/* SECONDARY HUD PANEL */}
+                    {/* PRE-FLIGHT STATUS PANEL */}
                     <div className="hidden lg:block">
-                        <div className="border border-white/10 bg-black/60 p-12 shadow-3xl relative overflow-hidden group">
-                            {/* Industrial HUD elements */}
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <span className="text-[60px] font-black italic">{version?.protocol || 'ZK-7'}</span>
+                        <div className="border border-white/10 bg-black/60 shadow-3xl relative overflow-hidden">
+                            {/* Industrial HUD Protocol Version */}
+                            <button
+                                onClick={() => console.log('Protocol Version:', version)}
+                                className="absolute top-0 right-0 p-4 opacity-10 hover:opacity-20 transition-opacity cursor-pointer group/version">
+                                <span className="text-[60px] font-black italic group-hover/version:text-primary transition-colors">{version?.protocol || 'ZK-7'}</span>
+                            </button>
+
+                            {/* SYSTEM READINESS HEADER */}
+                            <div className="border-b border-white/10 px-8 py-5 bg-black/40">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-white/40">Pre-Flight Status</h3>
+                                        <p className="text-[9px] text-white/30 font-medium">Situational Awareness // Not Launch Console</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 border border-red-500/30 bg-red-500/5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-red-400">Not Safe to Execute</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="space-y-10 relative z-10">
-                                <div className="space-y-2">
-                                    <h4 className="hud-text text-white/40">Network Orientation</h4>
+                            <div className="p-8 space-y-8 relative z-10">
+                                {/* NETWORK ORIENTATION - Internal Alignment */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="hud-text text-white/60 text-[10px] mb-0.5">Network Orientation</h4>
+                                            <p className="text-[8px] text-white/20 font-medium">Relayer pool readiness · Queue balance</p>
+                                        </div>
+                                        {lastUpdate && (<span className="text-[8px] text-white/20 font-mono">{lastUpdate.toLocaleTimeString()}</span>)}
+                                    </div>
                                     <div className="flex gap-1.5">
                                         {networkOrientation.map((v, i) => (
-                                            <div key={i} className={`w-2 h-6 ${v ? 'bg-secondary' : 'bg-white/5'}`} />
+                                            <div
+                                                key={i}
+                                                className={`w-2 h-6 transition-all duration-300 ${v
+                                                        ? 'bg-secondary shadow-[0_0_8px_rgba(0,255,255,0.6)] hover:h-8 hover:shadow-[0_0_12px_rgba(0,255,255,0.8)]'
+                                                        : 'bg-white/5 hover:bg-white/10'
+                                                    }`}
+                                                style={{
+                                                    animationDelay: `${i * 100}ms`,
+                                                    animation: v ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                                                }}
+                                            />
                                         ))}
                                     </div>
+                                    <p className="text-[8px] text-yellow-500/60 font-medium">⚠ Partial alignment detected</p>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <h4 className="hud-text text-white/40">Operational Status</h4>
-                                    <div className="p-6 border border-white/5 bg-white/[0.02] flex items-center justify-between">
-                                        <span className="text-sm font-bold tracking-widest">BRIDGE_LINK</span>
-                                        <span className={`font-mono text-xs ${telemetry?.bridgeLink === 'STABLE' ? 'text-green-500' : 'text-red-500'}`}>
-                                            {telemetry?.bridgeLink || 'UNKNOWN'}
-                                        </span>
+                                {/* OPERATIONAL STATUS - Safety Checks */}
+                                <div className="space-y-3">
+                                    <div>
+                                        <h4 className="hud-text text-white/60 text-[10px] mb-0.5">Operational Status</h4>
+                                        <p className="text-[8px] text-white/20 font-medium">Pre-flight safety checks</p>
                                     </div>
-                                    <div className="p-6 border border-white/5 bg-white/[0.02] flex items-center justify-between">
-                                        <span className="text-sm font-bold tracking-widest">ENCRYPTION_ENGINE</span>
-                                        <span className={`font-mono text-xs ${telemetry?.encryptionEngine === 'LOCKED' ? 'text-green-500' : 'text-red-500'}`}>
-                                            {telemetry?.encryptionEngine || 'UNKNOWN'}
-                                        </span>
-                                    </div>
+
+                                    {/* BRIDGE_LINK - Execution Path Health */}
+                                    <button
+                                        onClick={() => console.log('Bridge Link Status:', telemetry?.bridgeLink)}
+                                        className={`w-full px-5 py-4 border transition-all duration-300 group cursor-pointer ${telemetry?.bridgeLink === 'STABLE'
+                                                ? 'border-green-500/20 bg-green-500/5 hover:border-green-500/40'
+                                                : 'border-red-500/30 bg-red-500/5 hover:border-red-500/50'
+                                            }`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-bold tracking-widest group-hover:text-primary transition-colors">BRIDGE_LINK</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${telemetry?.bridgeLink === 'STABLE'
+                                                        ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]'
+                                                        : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse'
+                                                    }`} />
+                                                <span className={`font-mono text-xs font-bold ${telemetry?.bridgeLink === 'STABLE' ? 'text-green-500' : 'text-red-500'
+                                                    }`}>
+                                                    {telemetry?.bridgeLink || 'UNKNOWN'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="text-[8px] text-white/30 text-left font-medium">
+                                            {telemetry?.bridgeLink === 'STABLE'
+                                                ? 'Execution path healthy'
+                                                : 'Below safety threshold · RPC latency high or relayer backlog'}
+                                        </p>
+                                    </button>
+
+                                    {/* ENCRYPTION_ENGINE - Privacy Protection */}
+                                    <button
+                                        onClick={() => console.log('Encryption Engine Status:', telemetry?.encryptionEngine)}
+                                        className={`w-full px-5 py-4 border transition-all duration-300 group cursor-pointer ${telemetry?.encryptionEngine === 'LOCKED'
+                                                ? 'border-green-500/20 bg-green-500/5 hover:border-green-500/40'
+                                                : 'border-red-500/30 bg-red-500/5 hover:border-red-500/50'
+                                            }`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-bold tracking-widest group-hover:text-secondary transition-colors">ENCRYPTION_ENGINE</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${telemetry?.encryptionEngine === 'LOCKED'
+                                                        ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]'
+                                                        : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse'
+                                                    }`} />
+                                                <span className={`font-mono text-xs font-bold ${telemetry?.encryptionEngine === 'LOCKED' ? 'text-green-500' : 'text-red-500'
+                                                    }`}>
+                                                    {telemetry?.encryptionEngine || 'UNKNOWN'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="text-[8px] text-white/30 text-left font-medium">
+                                            {telemetry?.encryptionEngine === 'LOCKED'
+                                                ? 'Zero-knowledge privacy armed'
+                                                : 'Aleo wallet not connected · View key not loaded'}
+                                        </p>
+                                    </button>
                                 </div>
 
-                                <div className="pt-10">
-                                    <Link href="/">
-                                        <Button variant="mission" size="lg" className="w-full">
-                                            Initialize Mission Control <ChevronRight className="w-4 h-4 ml-3" />
+                                {/* INITIALIZE MISSION CONTROL - System Health Check */}
+                                <div className="pt-6 border-t border-white/5">
+                                    <Link href="/protocol">
+                                        <Button
+                                            variant="mission"
+                                            size="lg"
+                                            className="w-full group relative overflow-hidden">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                                            <span className="relative z-10">Initialize Mission Control</span>
+                                            <ChevronRight className="w-4 h-4 ml-3 relative z-10 group-hover:translate-x-1 transition-transform" />
                                         </Button>
                                     </Link>
+                                    <p className="text-[8px] text-white/20 text-center mt-3 font-medium">
+                                        Attempt to bring system into launch-capable state
+                                    </p>
                                 </div>
                             </div>
 
@@ -191,12 +293,22 @@ export default function MissionPage() {
             <div className="fixed bottom-0 left-0 right-0 border-t border-white/5 bg-black/80 backdrop-blur-md px-12 py-6 flex justify-between items-center z-50">
                 <div className="flex items-center gap-6">
                     <span className="hud-text text-white/20">Sector Uplink:</span>
-                    <span className="text-xs font-bold text-secondary font-mono">ORBITAL-7.BRAVO</span>
+                    <span className="text-xs font-bold text-secondary font-mono hover:text-primary transition-colors cursor-pointer">
+                        {version?.gateway || 'ORBITAL-7'}.BRAVO
+                    </span>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
-                    <span className="hud-text text-green-500">Telemetry Live</span>
-                </div>
+                <button
+                    onClick={() => console.log('Telemetry Status:', { live: telemetryLive, lastUpdate })}
+                    className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer group">
+                    <div className={`w-2 h-2 rounded-full transition-all duration-300 ${telemetryLive
+                        ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse'
+                        : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]'
+                        }`} />
+                    <span className={`hud-text transition-colors ${telemetryLive ? 'text-green-500' : 'text-yellow-500'
+                        }`}>
+                        {telemetryLive ? 'Telemetry Live' : 'Connecting...'}
+                    </span>
+                </button>
             </div>
 
         </div>
