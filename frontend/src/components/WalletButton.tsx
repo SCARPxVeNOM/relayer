@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { config, SUPPORTED_CHAIN_IDS } from '@/config';
+import { WalletMultiButton } from '@demox-labs/aleo-wallet-adapter-reactui';
 
 export interface WalletButtonProps {
   walletType: 'metamask' | 'leo';
