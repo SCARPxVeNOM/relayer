@@ -33,25 +33,14 @@ export function ServiceDashboard() {
             return;
         }
 
-        // If wallet is selected but not connected, try to connect
-        if (wallet && !connected) {
-            try {
-                // The hook's connect() should work if wallet is selected
-                await connect();
-                return;
-            } catch (error: any) {
-                setLeoError(error?.message || 'Connection failed');
-                console.error('Connection error:', error);
-                return;
-            }
-        }
-
-        // If no wallet selected, open modal to let user select
-        // The modal will handle the connection automatically after selection
+        // Always use the modal for wallet selection and connection
+        // This is the safest approach per Aleo Wallet Adapter docs
+        // The modal handles all the complexity of selection and connection
         try {
             setVisible(true);
         } catch (error: any) {
-            setLeoError(error?.message || 'Failed to open wallet selection');
+            const errorMsg = error?.message || error?.toString() || 'Failed to open wallet selection';
+            setLeoError(errorMsg);
             console.error('Wallet modal error:', error);
         }
     };
