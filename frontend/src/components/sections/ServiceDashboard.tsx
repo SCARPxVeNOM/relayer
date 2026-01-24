@@ -4,7 +4,6 @@ import { useSessionStore } from '../../stores/session.store';
 import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
 import { WalletMultiButton } from '@demox-labs/aleo-wallet-adapter-reactui';
 import { TransferForm } from '../TransferForm';
-import { useState } from 'react';
 import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
 
 /**
@@ -18,39 +17,8 @@ import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
  * - Disabled unless: aleoConnected AND controlSessionActive
  */
 export function ServiceDashboard() {
-    const { publicKey, wallet, connect, disconnect, select, wallets, connecting, connected } = useWallet();
-    const { setVisible } = useWalletModal();
+    const { publicKey, connected } = useWallet();
     const { controlSessionActive } = useSessionStore();
-
-    const [leoError, setLeoError] = useState<string | null>(null);
-
-    const handleConnectLeoWallet = async () => {
-        setLeoError(null);
-        
-        // If already connected, do nothing
-        if (wallet && connected) {
-            return;
-        }
-
-        // Always use the modal for wallet selection and connection
-        // This is the safest approach per Aleo Wallet Adapter docs
-        // The modal handles all the complexity of selection and connection
-        try {
-            setVisible(true);
-        } catch (error: any) {
-            const errorMsg = error?.message || error?.toString() || 'Failed to open wallet selection';
-            setLeoError(errorMsg);
-            console.error('Wallet modal error:', error);
-        }
-    };
-
-    const handleDisconnectLeo = async () => {
-        try {
-            await disconnect();
-        } catch (error: any) {
-            console.error('Failed to disconnect:', error);
-        }
-    };
 
     // Check if Command Core is enabled
     // Must have: Aleo connected AND session active
@@ -106,15 +74,10 @@ export function ServiceDashboard() {
                                 </div>
                             </div>
                             <div className="p-0.5 border border-white/10 bg-black">
-                                <WalletButton
-                                    walletType="leo"
-                                    connected={aleoConnected}
-                                    address={aleoAddress || null}
-                                    onConnect={handleConnectLeoWallet}
-                                    onDisconnect={handleDisconnectLeo}
-                                    loading={connecting}
-                                    error={leoError}
-                                />
+                                {/* Use WalletMultiButton which handles connection automatically */}
+                                <div className="[&_.wallet-adapter-button]:w-full [&_.wallet-adapter-button]:h-10 [&_.wallet-adapter-button]:px-4 [&_.wallet-adapter-button]:justify-between [&_.wallet-adapter-button]:bg-transparent [&_.wallet-adapter-button]:border-0 [&_.wallet-adapter-button]:text-white/40 [&_.wallet-adapter-button:hover]:text-white [&_.wallet-adapter-button:hover]:bg-white/5 [&_.wallet-adapter-button]:text-[9px] [&_.wallet-adapter-button]:font-black [&_.wallet-adapter-button]:uppercase [&_.wallet-adapter-button]:tracking-widest">
+                                    <WalletMultiButton />
+                                </div>
                             </div>
                             {aleoConnected && aleoAddress && (
                                 <div className="flex justify-between items-center pt-2 px-1">
