@@ -8,6 +8,7 @@
 import { createLogger } from '../utils/logger.js';
 import { CHAINS } from '../config.js';
 import { ethers } from 'ethers';
+import { readJsonBody, sendJson } from './http.js';
 
 const logger = createLogger("IntentAPI");
 
@@ -21,29 +22,29 @@ const logger = createLogger("IntentAPI");
  */
 export async function createIntent(req, res) {
   try {
-    const { chainId, amount, recipient } = req.body;
+    const { chainId, amount, recipient } = await readJsonBody(req);
 
     // Validate input
     if (!chainId || !amount || !recipient) {
-      res.status(400).json({ error: 'Missing required fields: chainId, amount, recipient' });
+      sendJson(res, 400, { error: 'Missing required fields: chainId, amount, recipient' });
       return;
     }
 
     // Validate chainId
     if (![CHAINS.ETH_SEPOLIA, CHAINS.POLYGON_AMOY].includes(chainId)) {
-      res.status(400).json({ error: 'Unsupported chainId' });
+      sendJson(res, 400, { error: 'Unsupported chainId' });
       return;
     }
 
     // Validate recipient address
     if (!ethers.isAddress(recipient)) {
-      res.status(400).json({ error: 'Invalid recipient address' });
+      sendJson(res, 400, { error: 'Invalid recipient address' });
       return;
     }
 
     // Validate amount
     if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      res.status(400).json({ error: 'Invalid amount' });
+      sendJson(res, 400, { error: 'Invalid amount' });
       return;
     }
 
@@ -61,13 +62,10 @@ export async function createIntent(req, res) {
 
     logger.info('Intent created', { requestId });
 
-    res.status(200).json({
-      requestId,
-      status: 'pending',
-    });
+    sendJson(res, 200, { requestId, status: 'pending' });
   } catch (error) {
     logger.error('Failed to create intent', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    sendJson(res, 500, { error: error?.message || 'Internal server error' });
   }
 }
 

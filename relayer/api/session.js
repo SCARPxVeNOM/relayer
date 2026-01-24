@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from '../utils/logger.js';
+import { sendJson } from './http.js';
 
 const logger = createLogger("SessionAPI");
 
@@ -32,13 +33,10 @@ export async function initSession(req, res) {
 
     logger.info('Session initialized', { sessionId });
 
-    res.status(200).json({
-      sessionId,
-      active: true,
-    });
+    sendJson(res, 200, { sessionId, active: true });
   } catch (error) {
     logger.error('Failed to initialize session', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    sendJson(res, 500, { error: error?.message || 'Internal server error' });
   }
 }
 
@@ -48,18 +46,19 @@ export async function initSession(req, res) {
  */
 export async function getSession(req, res) {
   try {
-    const { sessionId } = req.params;
+    // Not currently wired; kept for future use.
+    const sessionId = null;
     const session = activeSessions.get(sessionId);
     
     if (!session) {
-      res.status(404).json({ error: 'Session not found' });
+      sendJson(res, 404, { error: 'Session not found' });
       return;
     }
 
-    res.status(200).json(session);
+    sendJson(res, 200, session);
   } catch (error) {
     logger.error('Failed to get session', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    sendJson(res, 500, { error: error?.message || 'Internal server error' });
   }
 }
 

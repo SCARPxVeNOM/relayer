@@ -5,6 +5,9 @@
 import http from 'http';
 import { createLogger } from '../utils/logger.js';
 import transactionStorage from '../storage/transaction.db.js';
+import batchQueue from '../batch.queue.js';
+import ethExecutor from '../executor.eth.js';
+import polygonExecutor from '../executor.polygon.js';
 
 const logger = createLogger("HealthAPI");
 
@@ -88,22 +91,14 @@ class HealthAPI {
    */
   async handleMetrics(req, res) {
     try {
-      // Import core modules dynamically
-      const queue = (await import('../core/queue.js')).default;
-      const metrics = (await import('../core/metrics.js')).default;
-      const walletPool = (await import('../core/walletPool.js')).default;
-      
-      const queueSizes = Object.fromEntries(queue.getAllQueueDepths());
-      
-      // Get wallet statuses
-      const ethStatus = walletPool.getWalletStatuses(11155111);
-      const polygonStatus = walletPool.getWalletStatuses(80002);
+      const queueSizes = batchQueue.getQueueSizes?.() || {};
+
+      // Get wallet statuses from executors (best-effort)
+      const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
+      const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
 
       // Get transaction stats
       const txStats = transactionStorage.initialized ? transactionStorage.getStats() : null;
-
-      // Get M/M/k queue metrics
-      const queueMetrics = metrics.getJSONMetrics();
 
       const metricsData = {
         queues: queueSizes,
@@ -118,8 +113,6 @@ class HealthAPI {
           },
         },
         transactions: txStats,
-        queueMetrics, // M/M/k queue metrics
-        prometheus: metrics.getPrometheusMetrics(),
         memory: {
           heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
           heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
@@ -137,17 +130,52 @@ class HealthAPI {
   }
 
   /**
+   * Prometheus-compatible plaintext metrics.
+   * This is intentionally lightweight for Render deploys.
+   */
+  async handlePrometheusMetrics(req, res) {
+    try {
+      const queueSizes = batchQueue.getQueueSizes?.() || {};
+      const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
+      const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
+
+      const lines = [];
+      lines.push(`# HELP relayer_queue_depth Current in-memory queue depth per chain`);
+      lines.push(`# TYPE relayer_queue_depth gauge`);
+      for (const [chainId, depth] of Object.entries(queueSizes)) {
+        lines.push(`relayer_queue_depth{chain_id="${chainId}"} ${Number(depth) || 0}`);
+      }
+
+      lines.push(`# HELP relayer_wallet_count Wallet count per chain`);
+      lines.push(`# TYPE relayer_wallet_count gauge`);
+      lines.push(`relayer_wallet_count{chain_id="11155111"} ${ethStatus.length}`);
+      lines.push(`relayer_wallet_count{chain_id="80002"} ${polygonStatus.length}`);
+
+      const ethActive = ethStatus.filter((w) => w.status === "active").length;
+      const polygonActive = polygonStatus.filter((w) => w.status === "active").length;
+      lines.push(`# HELP relayer_wallet_active Active wallet count per chain`);
+      lines.push(`# TYPE relayer_wallet_active gauge`);
+      lines.push(`relayer_wallet_active{chain_id="11155111"} ${ethActive}`);
+      lines.push(`relayer_wallet_active{chain_id="80002"} ${polygonActive}`);
+
+      res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+      res.writeHead(200);
+      res.end(lines.join("\n") + "\n");
+    } catch (error) {
+      logger.error("Failed to get Prometheus metrics", error);
+      res.writeHead(500);
+      res.end("error\n");
+    }
+  }
+
+  /**
    * Handle status endpoint
    */
   async handleStatus(req, res) {
     try {
-      const queue = (await import('../core/queue.js')).default;
-      const walletPool = (await import('../core/walletPool.js')).default;
-      const scheduler = (await import('../core/scheduler.js')).default;
-      
-      const queueSizes = Object.fromEntries(queue.getAllQueueDepths());
-      const walletCounts = Object.fromEntries(walletPool.getAllWalletCounts());
-      const schedulerStatus = scheduler.getStatus();
+      const queueSizes = batchQueue.getQueueSizes?.() || {};
+      const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
+      const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
       
       const status = {
         relayer: {
@@ -157,15 +185,14 @@ class HealthAPI {
         queues: queueSizes,
         wallets: {
           eth: {
-            count: walletCounts['11155111'] || 0,
-            statuses: walletPool.getWalletStatuses(11155111),
+            count: ethStatus.length,
+            statuses: ethStatus,
           },
           polygon: {
-            count: walletCounts['80002'] || 0,
-            statuses: walletPool.getWalletStatuses(80002),
+            count: polygonStatus.length,
+            statuses: polygonStatus,
           },
         },
-        scheduler: schedulerStatus,
         storage: {
           initialized: transactionStorage.initialized,
         },

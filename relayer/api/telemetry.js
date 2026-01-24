@@ -6,10 +6,11 @@
  */
 
 import { createLogger } from '../utils/logger.js';
-import queue from '../core/queue.js';
-import walletPool from '../core/walletPool.js';
-import metrics from '../core/metrics.js';
 import { CHAINS } from '../config.js';
+import batchQueue from '../batch.queue.js';
+import ethExecutor from '../executor.eth.js';
+import polygonExecutor from '../executor.polygon.js';
+import { sendJson } from './http.js';
 
 const logger = createLogger("TelemetryAPI");
 
@@ -25,47 +26,42 @@ const logger = createLogger("TelemetryAPI");
  */
 export async function getTelemetry(req, res) {
   try {
-    // Get queue metrics to determine system health
-    const ethMetrics = metrics.getQueueMetrics(CHAINS.ETH_SEPOLIA);
-    const polygonMetrics = metrics.getQueueMetrics(CHAINS.POLYGON_AMOY);
+    // Read-only, best-effort telemetry derived from current executor + queue state.
+    const queueSizes = batchQueue.getQueueSizes?.() || {};
+    const ethStatus = (await ethExecutor.getWalletStatus().catch(() => [])) || [];
+    const polygonStatus = (await polygonExecutor.getWalletStatus().catch(() => [])) || [];
 
-    // Determine bridge link status
-    // STABLE if both chains are stable (λ < k × μ)
-    const bridgeLink = (ethMetrics.stability && polygonMetrics.stability) ? 'STABLE' : 'DEGRADED';
+    const totalWallets = ethStatus.length + polygonStatus.length;
+    const availableWallets =
+      [...ethStatus, ...polygonStatus].filter((w) => w.status === "active").length;
 
-    // Encryption engine status
-    // LOCKED if system is operational
-    const encryptionEngine = bridgeLink === 'STABLE' ? 'LOCKED' : 'UNLOCKED';
+    // Bridge link is STABLE if wallets exist and at least one is active per chain.
+    const ethOk = ethStatus.some((w) => w.status === "active");
+    const polygonOk = polygonStatus.some((w) => w.status === "active");
+    const bridgeLink = ethOk && polygonOk ? "STABLE" : "DEGRADED";
 
-    // Network orientation (health bars)
-    // Based on wallet availability and queue health
-    const ethWallets = walletPool.getWalletStatuses(CHAINS.ETH_SEPOLIA);
-    const polygonWallets = walletPool.getWalletStatuses(CHAINS.POLYGON_AMOY);
-    
-    const totalWallets = ethWallets.length + polygonWallets.length;
-    const availableWallets = [...ethWallets, ...polygonWallets].filter(w => w.isAvailable).length;
-    
-    // Create network orientation array (9 bars)
-    const networkOrientation = Array.from({ length: 9 }, (_, i) => {
-      const threshold = (i + 1) / 9;
-      return availableWallets / totalWallets >= threshold ? 1 : 0;
-    });
+    // Encryption engine reflects whether the relayer subsystem is operational.
+    const encryptionEngine = bridgeLink === "STABLE" ? "LOCKED" : "UNLOCKED";
 
-    // ZK system status
-    const zkSystemStatus = bridgeLink === 'STABLE' ? 'OPERATIONAL' : 'DEGRADED';
+    // 9-bar health display based on % of active wallets.
+    const ratio = totalWallets > 0 ? availableWallets / totalWallets : 0;
+    const networkOrientation = Array.from({ length: 9 }, (_, i) => (ratio >= (i + 1) / 9 ? 1 : 0));
+
+    const zkSystemStatus = bridgeLink === "STABLE" ? "OPERATIONAL" : "DEGRADED";
 
     const telemetry = {
       bridgeLink,
       encryptionEngine,
       networkOrientation,
       zkSystemStatus,
+      queues: queueSizes,
       timestamp: new Date().toISOString(),
     };
 
-    res.status(200).json(telemetry);
+    sendJson(res, 200, telemetry);
   } catch (error) {
     logger.error('Failed to get telemetry', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    sendJson(res, 500, { error: error?.message || 'Internal server error' });
   }
 }
 
