@@ -11,7 +11,21 @@ import transactionStorage from "./storage/transaction.db.js";
 
 const logger = createLogger("AleoListener");
 
-const ALEO_ENDPOINT = process.env.ALEO_RPC || "https://api.explorer.provable.com/v1/testnet3";
+/**
+ * Aleo API base URL.
+ *
+ * IMPORTANT: Aleo v2 endpoints use paths like:
+ * - GET /block/height/latest
+ * - GET /block/:height/transactions
+ *
+ * Docs:
+ * - https://developer.aleo.org/apis/v2/get-latest-height
+ * - https://developer.aleo.org/apis/v2/transactions-by-block-height
+ *
+ * If you previously used a v1 base URL, set ALEO_RPC to a v2 base, e.g.:
+ * - https://api.explorer.provable.com/v2/testnet
+ */
+const ALEO_ENDPOINT = process.env.ALEO_RPC || "https://api.explorer.provable.com/v2/testnet";
 const PROGRAM_ID = process.env.ALEO_PROGRAM_ID || "privacy_box_mvp.aleo";
 const POLL_INTERVAL = parseInt(process.env.ALEO_POLL_INTERVAL || "10000"); // 10 seconds default
 
@@ -35,10 +49,20 @@ class AleoListener {
   async getLatestBlockHeight() {
     return this.circuitBreaker.execute(async () => {
       return this.rateLimiter.perSecond.execute(async () => {
-        const endpoints = [
-          `${ALEO_ENDPOINT}/latest/height`,
-          `https://api.explorer.provable.com/v1/testnet3/latest/height`,
-        ];
+        const baseCandidates = this.getAleoBaseCandidates();
+        const endpoints = [];
+
+        // Primary v2 endpoint: GET /block/height/latest
+        // https://developer.aleo.org/apis/v2/get-latest-height
+        for (const base of baseCandidates) {
+          endpoints.push(`${base}/block/height/latest`);
+        }
+
+        // Fallback: GET /block/latest then try to derive height
+        // https://developer.aleo.org/apis/v2/get-latest-block
+        for (const base of baseCandidates) {
+          endpoints.push(`${base}/block/latest`);
+        }
 
         for (const endpoint of endpoints) {
           try {
@@ -47,8 +71,22 @@ class AleoListener {
             });
             if (response.ok) {
               const data = await response.json();
-              const height = typeof data === 'number' ? data : parseInt(data);
-              return height;
+
+              // /block/height/latest returns a number
+              if (typeof data === "number") return data;
+              if (typeof data === "string" && /^\d+$/.test(data)) return parseInt(data, 10);
+
+              // /block/latest returns a block object; try common shapes
+              const maybeHeight =
+                data?.height ??
+                data?.block?.height ??
+                data?.header?.metadata?.height ??
+                data?.block?.header?.metadata?.height ??
+                data?.metadata?.height ??
+                null;
+
+              if (typeof maybeHeight === "number") return maybeHeight;
+              if (typeof maybeHeight === "string" && /^\d+$/.test(maybeHeight)) return parseInt(maybeHeight, 10);
             }
           } catch (e) {
             continue;
@@ -61,14 +99,44 @@ class AleoListener {
   }
 
   /**
+   * Returns a list of Aleo API base URLs to try (v2).
+   * If ALEO_RPC is set to a v1 URL, we also try a best-effort v2 upgrade.
+   */
+  getAleoBaseCandidates() {
+    const bases = new Set();
+
+    const envBase = process.env.ALEO_RPC;
+    if (envBase) {
+      bases.add(envBase.replace(/\/+$/, ""));
+
+      // Best-effort upgrade: if env is v1, also try v2
+      // Example: https://api.explorer.aleo.org/v1  -> https://api.explorer.provable.com/v2/testnet
+      if (envBase.includes("/v1")) {
+        bases.add(envBase.replace("/v1", "/v2"));
+        bases.add("https://api.explorer.provable.com/v2/testnet");
+        bases.add("https://api.explorer.provable.com/v2/testnet3");
+      }
+    }
+
+    // Known public bases (v2)
+    bases.add("https://api.explorer.provable.com/v2/testnet");
+    bases.add("https://api.explorer.provable.com/v2/testnet3");
+    bases.add("https://api.explorer.provable.com/v2/canary");
+    bases.add("https://api.explorer.provable.com/v2/mainnet");
+
+    return Array.from(bases);
+  }
+
+  /**
    * Get block transactions
    */
   async getBlockTransactions(blockHeight) {
     try {
-      const endpoints = [
-        `${ALEO_ENDPOINT}/block/${blockHeight}/transactions`,
-        `https://api.explorer.provable.com/v1/testnet3/block/${blockHeight}/transactions`,
-      ];
+      // GET /block/:height/transactions
+      // https://developer.aleo.org/apis/v2/transactions-by-block-height
+      const endpoints = this.getAleoBaseCandidates().map(
+        (base) => `${base}/block/${blockHeight}/transactions`,
+      );
 
       for (const endpoint of endpoints) {
         try {
@@ -303,10 +371,8 @@ class AleoListener {
    */
   async getTransactionDetails(txId) {
     try {
-      const endpoints = [
-        `${ALEO_ENDPOINT}/transaction/${txId}`,
-        `https://api.explorer.provable.com/v1/testnet3/transaction/${txId}`,
-      ];
+      // Keep as best-effort; different explorers may shape this differently.
+      const endpoints = this.getAleoBaseCandidates().map((base) => `${base}/transaction/${txId}`);
 
       for (const endpoint of endpoints) {
         try {
