@@ -56,13 +56,13 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      // If wallet is already selected, just connect
+      // If wallet is already selected but not connected, connect directly to adapter
       if (wallet) {
-        await connect();
+        await wallet.adapter.connect();
         return;
       }
 
-      // Find and select Leo wallet adapter
+      // Find Leo wallet adapter
       const leoWallet = wallets.find(w => 
         w.adapter.name === 'Leo' || 
         w.adapter.name === 'Leo Wallet' ||
@@ -74,13 +74,13 @@ export default function Home() {
       }
 
       // Select the wallet first
-      await select(leoWallet.adapter.name);
+      select(leoWallet.adapter.name);
       
       // Wait for selection to propagate
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Now connect
-      await connect();
+      // Connect directly to the adapter
+      await leoWallet.adapter.connect();
     } catch (error) {
       console.error('Failed to connect:', error);
     } finally {

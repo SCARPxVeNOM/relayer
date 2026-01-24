@@ -26,13 +26,18 @@ export function ServiceDashboard() {
     const handleConnectLeoWallet = async () => {
         setLeoError(null);
         try {
-            // If wallet is already selected, just connect
-            if (wallet) {
-                await connect();
+            // If wallet is already selected and connected, do nothing
+            if (wallet && connected) {
                 return;
             }
 
-            // Find and select Leo wallet adapter
+            // If wallet is selected but not connected, connect directly to adapter
+            if (wallet) {
+                await wallet.adapter.connect();
+                return;
+            }
+
+            // Find Leo wallet adapter
             const leoWallet = wallets.find(w => 
                 w.adapter.name === 'Leo' || 
                 w.adapter.name === 'Leo Wallet' ||
@@ -44,13 +49,13 @@ export function ServiceDashboard() {
             }
 
             // Select the wallet first
-            await select(leoWallet.adapter.name);
+            select(leoWallet.adapter.name);
             
             // Wait for selection to propagate
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 300));
             
-            // Now connect
-            await connect();
+            // Connect directly to the adapter
+            await leoWallet.adapter.connect();
         } catch (error: any) {
             setLeoError(error.message || 'Leo Wallet Connection Failed');
         }
