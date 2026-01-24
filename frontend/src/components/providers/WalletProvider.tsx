@@ -30,7 +30,7 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
     <AleoWalletProvider
       wallets={wallets}
       decryptPermission={DecryptPermission.UponRequest}
-      network={WalletAdapterNetwork.Testnet}
+      network={WalletAdapterNetwork.TestnetBeta}
       autoConnect={false}
       onError={(error) => {
         // Suppress the "invalid parameters" error - it's a known issue with the adapter
