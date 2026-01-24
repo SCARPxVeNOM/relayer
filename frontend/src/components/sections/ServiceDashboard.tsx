@@ -27,57 +27,19 @@ export function ServiceDashboard() {
 
     const handleConnectLeoWallet = async () => {
         setLeoError(null);
+        
+        // If already connected, do nothing
+        if (wallet && connected) {
+            return;
+        }
+
+        // Use the wallet modal for connection - it handles all the complexity
+        // This is the recommended approach per Aleo Wallet Adapter docs
         try {
-            // If wallet is already selected and connected, do nothing
-            if (wallet && connected) {
-                return;
-            }
-
-            // If wallet is selected but not connected, use hook's connect method
-            if (wallet) {
-                await connect();
-                return;
-            }
-
-            // Find Leo wallet adapter
-            const leoWallet = wallets.find(w => 
-                w.adapter.name === 'Leo' || 
-                w.adapter.name === 'Leo Wallet' ||
-                w.adapter.name.toLowerCase().includes('leo')
-            );
-            
-            if (!leoWallet) {
-                // If no wallet found, open the modal to let user select
-                setVisible(true);
-                return;
-            }
-
-            // Check if adapter is ready (installed)
-            if (leoWallet.readyState === 'NotFound') {
-                throw new Error('Leo Wallet extension not installed. Please install it from the browser extension store.');
-            }
-
-            // Select the wallet first
-            select(leoWallet.adapter.name);
-            
-            // Wait for selection to propagate
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Use hook's connect method instead of adapter.connect()
-            await connect();
+            setVisible(true);
         } catch (error: any) {
-            // Better error handling - check for specific error types
-            const errorMessage = error?.message || error?.toString() || 'Leo Wallet Connection Failed';
-            
-            if (errorMessage.includes('User rejected') || errorMessage.includes('rejected')) {
-                setLeoError('Connection rejected by user');
-            } else if (errorMessage.includes('not installed') || errorMessage.includes('NotFound')) {
-                setLeoError('Leo Wallet extension not installed. Please install it first.');
-            } else {
-                setLeoError(errorMessage);
-            }
-            
-            console.error('Wallet connection error:', error);
+            setLeoError(error?.message || 'Failed to open wallet selection');
+            console.error('Wallet modal error:', error);
         }
     };
 
