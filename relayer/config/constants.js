@@ -3,7 +3,9 @@
  */
 
 export const ALEO_PROGRAM_ID = "privacy_box_mvp.aleo";
-export const ALEO_ENDPOINT = process.env.ALEO_RPC || "https://api.explorer.provable.com/v1";
+// Updated to v2 API base URL
+// Docs: https://developer.aleo.org/apis/v2/get-latest-height
+export const ALEO_ENDPOINT = process.env.ALEO_RPC || "https://api.explorer.provable.com/v2/testnet";
 export const ALEO_NETWORK = "testnet3";
 
 export const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "10000"); // 10 seconds

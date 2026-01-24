@@ -1,10 +1,13 @@
 /**
  * Aleo Service - Connects to Aleo testnet and monitors program transactions
+ * Updated to use Aleo API v2 endpoints
+ * Docs: https://developer.aleo.org/apis/v2/get-latest-height
  */
 
 import fetch from "node-fetch";
 
-const ALEO_ENDPOINT = process.env.ALEO_RPC || "https://api.explorer.provable.com/v1";
+// Updated to v2 API base URL
+const ALEO_ENDPOINT = process.env.ALEO_RPC || "https://api.explorer.provable.com/v2/testnet";
 const PROGRAM_ID = "privacy_box_mvp.aleo";
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -17,22 +20,35 @@ class AleoService {
 
   /**
    * Get latest block height
+   * Uses Aleo API v2: GET /block/height/latest
+   * Docs: https://developer.aleo.org/apis/v2/get-latest-height
    */
   async getLatestBlockHeight() {
     try {
-      // Try different endpoint formats
+      // Try v2 endpoints first
       const endpoints = [
-        `${ALEO_ENDPOINT}/testnet3/latest/height`,
-        `${ALEO_ENDPOINT}/latest/height`,
-        `https://api.explorer.provable.com/v1/testnet3/latest/height`,
+        `${ALEO_ENDPOINT}/block/height/latest`,
+        `https://api.explorer.provable.com/v2/testnet/block/height/latest`,
+        `https://api.explorer.provable.com/v2/testnet3/block/height/latest`,
+        // Fallback: try /block/latest and extract height
+        `${ALEO_ENDPOINT}/block/latest`,
+        `https://api.explorer.provable.com/v2/testnet/block/latest`,
       ];
 
       for (const endpoint of endpoints) {
         try {
-          const response = await fetch(endpoint);
+          const response = await fetch(endpoint, { timeout: 10000 });
           if (response.ok) {
             const data = await response.json();
-            return parseInt(data);
+            
+            // /block/height/latest returns a number
+            if (typeof data === "number") return data;
+            if (typeof data === "string" && /^\d+$/.test(data)) return parseInt(data, 10);
+            
+            // /block/latest returns a block object; try to extract height
+            const maybeHeight = data?.height ?? data?.block?.height ?? data?.header?.metadata?.height ?? data?.block?.header?.metadata?.height ?? data?.metadata?.height ?? null;
+            if (typeof maybeHeight === "number") return maybeHeight;
+            if (typeof maybeHeight === "string" && /^\d+$/.test(maybeHeight)) return parseInt(maybeHeight, 10);
           }
         } catch (e) {
           continue;
@@ -47,13 +63,15 @@ class AleoService {
 
   /**
    * Get transactions for a specific program
+   * Uses Aleo API v2: GET /block/:height/transactions
+   * Docs: https://developer.aleo.org/apis/v2/transactions-by-block-height
    */
   async getProgramTransactions(blockHeight) {
     try {
       const endpoints = [
-        `${ALEO_ENDPOINT}/testnet3/block/${blockHeight}/transactions`,
         `${ALEO_ENDPOINT}/block/${blockHeight}/transactions`,
-        `https://api.explorer.provable.com/v1/testnet3/block/${blockHeight}/transactions`,
+        `https://api.explorer.provable.com/v2/testnet/block/${blockHeight}/transactions`,
+        `https://api.explorer.provable.com/v2/testnet3/block/${blockHeight}/transactions`,
       ];
 
       for (const endpoint of endpoints) {
@@ -181,16 +199,28 @@ class AleoService {
 
   /**
    * Get program info
+   * Uses Aleo API v2: GET /program/:programId
    */
   async getProgramInfo() {
     try {
-      const response = await fetch(
-        `${ALEO_ENDPOINT}/testnet3/program/${PROGRAM_ID}`
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const endpoints = [
+        `${ALEO_ENDPOINT}/program/${PROGRAM_ID}`,
+        `https://api.explorer.provable.com/v2/testnet/program/${PROGRAM_ID}`,
+        `https://api.explorer.provable.com/v2/testnet3/program/${PROGRAM_ID}`,
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, { timeout: 10000 });
+          if (response.ok) {
+            return await response.json();
+          }
+        } catch (e) {
+          continue;
+        }
       }
-      return await response.json();
+      
+      throw new Error(`HTTP error! status: failed on all endpoints`);
     } catch (error) {
       throw new Error(`Failed to get program info: ${error.message}`);
     }
