@@ -159,11 +159,21 @@ class APIClient {
    * Pulse rate based on queue activity
    */
   async getHeartbeat(): Promise<{ pulseRate: string; activity: number; timestamp: number }> {
-    const response = await fetch(`${this.baseUrl}/api/heartbeat`);
-    if (!response.ok) {
-      throw new Error(`Heartbeat fetch failed: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.baseUrl}/api/heartbeat`);
+      if (!response.ok) {
+        // Return default values if endpoint not available (for backwards compatibility)
+        if (response.status === 404) {
+          return { pulseRate: 'IDLE', activity: 0, timestamp: Date.now() };
+        }
+        throw new Error(`Heartbeat fetch failed: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error) {
+      // Return default values on network errors
+      console.warn('Heartbeat endpoint not available, using defaults:', error);
+      return { pulseRate: 'IDLE', activity: 0, timestamp: Date.now() };
     }
-    return response.json();
   }
 
   /**
@@ -195,11 +205,21 @@ class APIClient {
    * Protocol version
    */
   async getVersion(): Promise<{ protocol: string; gateway: string; build: string }> {
-    const response = await fetch(`${this.baseUrl}/api/version`);
-    if (!response.ok) {
-      throw new Error(`Version fetch failed: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.baseUrl}/api/version`);
+      if (!response.ok) {
+        // Return default values if endpoint not available (for backwards compatibility)
+        if (response.status === 404) {
+          return { protocol: 'ZK-7', gateway: 'ORBITAL-7', build: 'v1.0.4-beta' };
+        }
+        throw new Error(`Version fetch failed: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error) {
+      // Return default values on network errors
+      console.warn('Version endpoint not available, using defaults:', error);
+      return { protocol: 'ZK-7', gateway: 'ORBITAL-7', build: 'v1.0.4-beta' };
     }
-    return response.json();
   }
 
   /**

@@ -30,12 +30,27 @@ export default function MissionPage() {
     useEffect(() => {
         const fetchAll = async () => {
             try {
-                const [telemetryData, versionData] = await Promise.all([
+                const [telemetryData, versionData] = await Promise.allSettled([
                     apiClient.getTelemetry(),
-                    apiClient.getVersion()
+                    apiClient.getVersion().catch(() => ({ protocol: 'ZK-7', gateway: 'ORBITAL-7', build: 'v1.0.4-beta' }))
                 ]);
-                setTelemetry(telemetryData);
-                setVersion(versionData);
+
+                if (telemetryData.status === 'fulfilled') {
+                    setTelemetry(telemetryData.value);
+                } else {
+                    setTelemetry({
+                        bridgeLink: 'DEGRADED',
+                        encryptionEngine: 'UNLOCKED',
+                        networkOrientation: [1, 1, 1, 1, 1, 1, 0, 0, 0],
+                        zkSystemStatus: 'UNKNOWN',
+                    });
+                }
+
+                if (versionData.status === 'fulfilled') {
+                    setVersion(versionData.value);
+                } else {
+                    setVersion({ protocol: 'ZK-7', gateway: 'ORBITAL-7' });
+                }
             } catch (error) {
                 console.error('Failed to fetch mission data:', error);
                 setTelemetry({
@@ -44,6 +59,7 @@ export default function MissionPage() {
                     networkOrientation: [1, 1, 1, 1, 1, 1, 0, 0, 0],
                     zkSystemStatus: 'UNKNOWN',
                 });
+                setVersion({ protocol: 'ZK-7', gateway: 'ORBITAL-7' });
             }
         };
 
