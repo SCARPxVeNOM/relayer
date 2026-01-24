@@ -5,7 +5,8 @@ import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
 import { WalletMultiButton } from '@demox-labs/aleo-wallet-adapter-reactui';
 import { TransferForm } from '../TransferForm';
 import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { apiClient } from '@/services/api.client';
 
 /**
  * COMMAND CORE - Service Dashboard
