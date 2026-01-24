@@ -73,13 +73,18 @@ export default function Home() {
         throw new Error('Leo Wallet adapter not found. Please install Leo Wallet extension.');
       }
 
+      // Check if adapter is ready (installed)
+      if (leoWallet.readyState === 'NotFound') {
+        throw new Error('Leo Wallet extension not installed. Please install it from the browser extension store.');
+      }
+
       // Select the wallet first
       select(leoWallet.adapter.name);
       
       // Wait for selection to propagate
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Connect directly to the adapter
+      // Connect directly to the adapter (no parameters needed)
       await leoWallet.adapter.connect();
     } catch (error) {
       console.error('Failed to connect:', error);
