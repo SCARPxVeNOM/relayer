@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useSessionStore } from "@/stores/session.store";
 import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
+import { useWalletModal } from '@demox-labs/aleo-wallet-adapter-reactui';
 import { apiClient } from "@/services/api.client";
 
 /**
@@ -20,6 +21,7 @@ import { apiClient } from "@/services/api.client";
  */
 export default function Home() {
   const { publicKey, connect, select, wallet, wallets, connected } = useWallet();
+  const { setVisible } = useWalletModal();
   const { initSession, controlSessionActive } = useSessionStore();
   const aleoConnected = connected && !!publicKey;
   const [systemReady, setSystemReady] = useState(false);
@@ -56,9 +58,9 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      // If wallet is already selected but not connected, connect directly to adapter
+      // If wallet is already selected but not connected, use hook's connect method
       if (wallet) {
-        await wallet.adapter.connect();
+        await connect();
         return;
       }
 
@@ -70,7 +72,9 @@ export default function Home() {
       );
       
       if (!leoWallet) {
-        throw new Error('Leo Wallet adapter not found. Please install Leo Wallet extension.');
+        // If no wallet found, open the modal to let user select
+        setVisible(true);
+        return;
       }
 
       // Check if adapter is ready (installed)
@@ -82,12 +86,14 @@ export default function Home() {
       select(leoWallet.adapter.name);
       
       // Wait for selection to propagate
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Connect directly to the adapter (no parameters needed)
-      await leoWallet.adapter.connect();
-    } catch (error) {
-      console.error('Failed to connect:', error);
+      // Use hook's connect method instead of adapter.connect()
+      await connect();
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Connection failed';
+      console.error('Failed to connect:', errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import { useSessionStore } from '../../stores/session.store';
 import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
+import { useWalletModal } from '@demox-labs/aleo-wallet-adapter-reactui';
 import { TransferForm } from '../TransferForm';
 import { WalletButton } from '../WalletButton';
 import { useState } from 'react';
@@ -19,6 +20,7 @@ import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
  */
 export function ServiceDashboard() {
     const { publicKey, wallet, connect, disconnect, select, wallets, connecting, connected } = useWallet();
+    const { setVisible } = useWalletModal();
     const { controlSessionActive } = useSessionStore();
 
     const [leoError, setLeoError] = useState<string | null>(null);
@@ -31,9 +33,9 @@ export function ServiceDashboard() {
                 return;
             }
 
-            // If wallet is selected but not connected, connect directly to adapter
+            // If wallet is selected but not connected, use hook's connect method
             if (wallet) {
-                await wallet.adapter.connect();
+                await connect();
                 return;
             }
 
@@ -45,7 +47,9 @@ export function ServiceDashboard() {
             );
             
             if (!leoWallet) {
-                throw new Error('Leo Wallet adapter not found. Please install Leo Wallet extension.');
+                // If no wallet found, open the modal to let user select
+                setVisible(true);
+                return;
             }
 
             // Check if adapter is ready (installed)
@@ -57,12 +61,23 @@ export function ServiceDashboard() {
             select(leoWallet.adapter.name);
             
             // Wait for selection to propagate
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Connect directly to the adapter (no parameters needed)
-            await leoWallet.adapter.connect();
+            // Use hook's connect method instead of adapter.connect()
+            await connect();
         } catch (error: any) {
-            setLeoError(error.message || 'Leo Wallet Connection Failed');
+            // Better error handling - check for specific error types
+            const errorMessage = error?.message || error?.toString() || 'Leo Wallet Connection Failed';
+            
+            if (errorMessage.includes('User rejected') || errorMessage.includes('rejected')) {
+                setLeoError('Connection rejected by user');
+            } else if (errorMessage.includes('not installed') || errorMessage.includes('NotFound')) {
+                setLeoError('Leo Wallet extension not installed. Please install it first.');
+            } else {
+                setLeoError(errorMessage);
+            }
+            
+            console.error('Wallet connection error:', error);
         }
     };
 
