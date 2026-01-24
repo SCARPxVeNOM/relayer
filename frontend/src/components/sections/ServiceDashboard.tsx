@@ -102,18 +102,20 @@ export function ServiceDashboard() {
                             <div className="p-0.5 border border-white/10 bg-black">
                                 <WalletButton
                                     walletType="leo"
-                                    connected={leoWallet.connected}
-                                    address={leoWallet.address}
+                                    connected={aleoConnected}
+                                    address={aleoAddress || null}
                                     onConnect={handleConnectLeoWallet}
-                                    onDisconnect={disconnectLeoWallet}
+                                    onDisconnect={handleDisconnectLeo}
                                     loading={isConnectingLeo}
                                     error={leoError}
                                 />
                             </div>
-                            {leoWallet.connected && (
+                            {aleoConnected && aleoAddress && (
                                 <div className="flex justify-between items-center pt-2 px-1">
                                     <span className="text-[9px] text-white/30 uppercase font-black tracking-widest">Shielded</span>
-                                    <span className="text-xs font-mono font-bold tracking-tighter text-secondary">{formatBalance(leoWallet.balance)} <span className="text-[9px] opacity-40">ALEO</span></span>
+                                    <span className="text-xs font-mono font-bold tracking-tighter text-secondary">
+                                        <span className="text-[9px] opacity-40">ALEO</span>
+                                    </span>
                                 </div>
                             )}
                         </div>
