@@ -17,7 +17,7 @@ import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
  * - Disabled unless: aleoConnected AND controlSessionActive
  */
 export function ServiceDashboard() {
-    const { publicKey, connected } = useWallet();
+    const { publicKey, connected, wallet, connecting } = useWallet();
     const { controlSessionActive } = useSessionStore();
 
     // Check if Command Core is enabled
@@ -25,6 +25,15 @@ export function ServiceDashboard() {
     const aleoConnected = connected && !!publicKey;
     const aleoAddress = publicKey?.toString() || null;
     const isCommandCoreEnabled = aleoConnected && controlSessionActive;
+
+    // Debug: Log connection status
+    React.useEffect(() => {
+        if (wallet) {
+            console.log('Wallet adapter:', wallet.adapter.name);
+            console.log('Wallet ready:', wallet.adapter.ready);
+        }
+        console.log('Connection status:', { connected, publicKey: publicKey?.toString(), connecting });
+    }, [wallet, connected, publicKey, connecting]);
 
     return (
         <div className="flex flex-col bg-black border border-white/5">

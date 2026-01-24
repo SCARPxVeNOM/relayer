@@ -43,17 +43,14 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
         if (
           errorMessage.includes('invalid') || 
           errorMessage.includes('INVALID_PARAMS') ||
-          errorMessage.includes('Some of the parameters') ||
-          errorName === 'WalletConnectionError'
+          errorMessage.includes('Some of the parameters')
         ) {
-          // Only suppress if it's the specific invalid params error
-          // Other connection errors should still be logged
-          if (errorMessage.includes('invalid') || errorMessage.includes('INVALID_PARAMS')) {
-            // Silently suppress - this is expected during modal initialization
-            // User can still connect manually via WalletMultiButton
-            return;
-          }
+          // Silently suppress - this is expected during modal initialization
+          // User can still connect manually via WalletMultiButton
+          return;
         }
+        
+        // Log other errors for debugging
         console.error('Wallet adapter error:', error);
       }}
     >
