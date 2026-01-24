@@ -1,0 +1,37 @@
+{
+  "name": "privacy-box-mvp",
+  "version": "1.0.0",
+  "description": "Multi-Chain Privacy Barrier MVP - Private cross-chain transfers via Aleo",
+  "type": "module",
+  "main": "relayer/index.js",
+  "scripts": {
+    "start": "node relayer/index.js",
+    "relayer": "node relayer/index.js",
+    "start:core": "node --loader ts-node/esm relayer/index.core.ts",
+    "test:relayer": "node scripts/test-relayer.js",
+    "check:leo": "node scripts/check-leo.js",
+    "generate:key": "node scripts/generate-relayer-key.js",
+    "deploy:aleo": "node scripts/deploy-aleo.js",
+    "health": "node scripts/health-check.js",
+    "test": "npm run test:relayer"
+  },
+  "keywords": [
+    "aleo",
+    "privacy",
+    "zero-knowledge",
+    "cross-chain",
+    "ethereum",
+    "polygon"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.9.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  }
+}

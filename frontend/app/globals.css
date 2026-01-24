@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-secondary: hsl(var(--secondary));
+  --color-accent: hsl(var(--accent));
+  --color-muted: hsl(var(--muted));
+  --color-border: hsl(var(--border));
+
+  --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  --shadow-space-panel: 0 0 40px rgba(0, 0, 0, 0.8);
+  --shadow-neon-orange: 0 0 20px rgba(255, 77, 0, 0.4);
+  --shadow-neon-cyan: 0 0 20px rgba(0, 255, 255, 0.4);
+
+  --radius-lg: 0px;
+  --radius-md: 0px;
+  --radius-sm: 0px;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 2%;
+    --foreground: 0 0% 100%;
+    --primary: 18 100% 50%;
+    /* SpaceX Orange #FF4D00 */
+    --secondary: 190 100% 50%;
+    /* Aleo Cyan */
+    --accent: 0 0% 100%;
+    --muted: 0 0% 10%;
+    --border: 0 0% 15%;
+    --radius: 0rem;
+    /* Absolute Sharpness */
+  }
+
+  body {
+    @apply bg-[#020202] text-white antialiased font-mono;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+@utility space-panel {
+  @apply bg-black border border-white/10 shadow-space-panel;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+}
+
+@utility neon-glow-orange {
+  @apply shadow-neon-orange border-primary/60;
+}
+
+@utility neon-glow-cyan {
+  @apply shadow-neon-cyan border-secondary/60;
+}
+
+@utility hud-text {
+  @apply font-mono uppercase tracking-[0.3em] text-[10px] font-black;
+}
+
+@utility studio-panel {
+  @apply bg-[#0a0a0a] border border-white/5 shadow-2xl;
+}

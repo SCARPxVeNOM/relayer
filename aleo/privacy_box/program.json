@@ -1,0 +1,10 @@
+{
+  "program": "privacy_box_mvp.aleo",
+  "version": "0.1.0",
+  "description": "Multi-Chain Privacy Barrier MVP - Private cross-chain transfers",
+  "license": "MIT",
+  "leo": "3.4.0",
+  "dependencies": null,
+  "dev_dependencies": null
+}
+
