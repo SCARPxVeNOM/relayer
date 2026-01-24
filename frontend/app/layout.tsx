@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/layout/Navbar";
+import { WalletProvider } from "@/components/providers/WalletProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -19,10 +20,12 @@ export default function RootLayout({
     return (
         <html lang="en" className="dark scroll-smooth">
             <body className={cn("min-h-screen bg-background font-sans antialiased text-foreground selection:bg-primary selection:text-primary-foreground", inter.variable)}>
-                <Header />
-                <main className="relative z-10">
-                    {children}
-                </main>
+                <WalletProvider>
+                    <Header />
+                    <main className="relative z-10">
+                        {children}
+                    </main>
+                </WalletProvider>
             </body>
         </html>
     );

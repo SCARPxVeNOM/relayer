@@ -1,9 +1,10 @@
 "use client";
 
 import { useSessionStore } from '../../stores/session.store';
+import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
 import { TransferForm } from '../TransferForm';
 import { WalletButton } from '../WalletButton';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
 
 /**
@@ -17,32 +18,23 @@ import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
  * - Disabled unless: aleoConnected AND controlSessionActive
  */
 export function ServiceDashboard() {
-    const {
-        aleoConnected,
-        aleoAddress,
-        controlSessionActive,
-        connectAleo,
-        disconnectAleo,
-    } = useSessionStore();
+    const { publicKey, wallet, connect, disconnect, connecting, connected } = useWallet();
+    const { controlSessionActive } = useSessionStore();
 
     const [leoError, setLeoError] = useState<string | null>(null);
-    const [isConnectingLeo, setIsConnectingLeo] = useState(false);
 
     const handleConnectLeoWallet = async () => {
         setLeoError(null);
-        setIsConnectingLeo(true);
         try {
-            await connectAleo();
+            await connect();
         } catch (error: any) {
             setLeoError(error.message || 'Leo Wallet Connection Failed');
-        } finally {
-            setIsConnectingLeo(false);
         }
     };
 
     const handleDisconnectLeo = async () => {
         try {
-            await disconnectAleo();
+            await disconnect();
         } catch (error: any) {
             console.error('Failed to disconnect:', error);
         }
@@ -50,6 +42,8 @@ export function ServiceDashboard() {
 
     // Check if Command Core is enabled
     // Must have: Aleo connected AND session active
+    const aleoConnected = connected && !!publicKey;
+    const aleoAddress = publicKey?.toString() || null;
     const isCommandCoreEnabled = aleoConnected && controlSessionActive;
 
     return (
@@ -106,7 +100,7 @@ export function ServiceDashboard() {
                                     address={aleoAddress || null}
                                     onConnect={handleConnectLeoWallet}
                                     onDisconnect={handleDisconnectLeo}
-                                    loading={isConnectingLeo}
+                                    loading={connecting}
                                     error={leoError}
                                 />
                             </div>

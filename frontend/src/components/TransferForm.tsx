@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useSessionStore } from '@/stores/session.store';
+import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
 import { config } from '@/config';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -23,7 +24,9 @@ import { apiClient } from '@/services/api.client';
  * Backend handles all EVM transactions.
  */
 export const TransferForm: React.FC = () => {
-  const { aleoConnected, controlSessionActive } = useSessionStore();
+  const { publicKey, connected } = useWallet();
+  const { controlSessionActive } = useSessionStore();
+  const aleoConnected = connected && !!publicKey;
   
   const [form, setForm] = React.useState({
     amount: '',

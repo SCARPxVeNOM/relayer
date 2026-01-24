@@ -4,6 +4,7 @@ import { Activity, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useSessionStore } from "@/stores/session.store";
+import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
 import { apiClient } from "@/services/api.client";
 
 /**
@@ -18,7 +19,9 @@ import { apiClient } from "@/services/api.client";
  * - Session initialization (backend API call only)
  */
 export default function Home() {
-  const { aleoConnected, aleoAddress, connectAleo, initSession, controlSessionActive } = useSessionStore();
+  const { publicKey, connect, connected } = useWallet();
+  const { initSession, controlSessionActive } = useSessionStore();
+  const aleoConnected = connected && !!publicKey;
   const [systemReady, setSystemReady] = useState(false);
   const [uplinkStatus, setUplinkStatus] = useState<string>("Checking...");
   const [orbitLocked, setOrbitLocked] = useState(false);
@@ -53,7 +56,7 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      await connectAleo();
+      await connect();
     } catch (error) {
       console.error('Failed to connect:', error);
     } finally {
