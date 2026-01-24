@@ -34,9 +34,16 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
       autoConnect={false}
       onError={(error) => {
         // Suppress the "invalid parameters" error - it's a known issue with the adapter
-        // The modal will handle connection properly when user manually selects wallet
-        if (error?.message?.includes('invalid') || error?.message?.includes('INVALID_PARAMS')) {
-          console.warn('Wallet connection error (suppressed):', error.message);
+        // The WalletModal tries to auto-connect in useLayoutEffect, which causes this error
+        // This doesn't prevent manual connection when user clicks the button
+        const errorMessage = error?.message || error?.toString() || '';
+        if (
+          errorMessage.includes('invalid') || 
+          errorMessage.includes('INVALID_PARAMS') ||
+          errorMessage.includes('Some of the parameters')
+        ) {
+          // Silently suppress - this is expected during modal initialization
+          // User can still connect manually via WalletMultiButton
           return;
         }
         console.error('Wallet adapter error:', error);
@@ -48,4 +55,3 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
     </AleoWalletProvider>
   );
 };
-
