@@ -29,24 +29,29 @@ export default function Home() {
   const [orbitLocked, setOrbitLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // On page load: GET /api/health
+  // On page load: GET /api/health and /api/latency
   useEffect(() => {
-    const checkHealth = async () => {
+    const fetchData = async () => {
       try {
-        const health = await apiClient.getHealth();
+        const [health, latency, heartbeat] = await Promise.all([
+          apiClient.getHealth(),
+          apiClient.getLatency(),
+          apiClient.getHeartbeat()
+        ]);
+
         setSystemReady(health.status === 'healthy');
-        setUplinkStatus(`Secured_${(health.uptime * 1000).toFixed(2)}ms`);
+        setUplinkStatus(`${latency.status}_${latency.value}${latency.unit}`);
         setOrbitLocked(true);
       } catch (error) {
-        console.error('Health check failed:', error);
+        console.error('Data fetch failed:', error);
         setSystemReady(false);
         setUplinkStatus('Degraded');
         setOrbitLocked(false);
       }
     };
 
-    checkHealth();
-    const interval = setInterval(checkHealth, 10000); // Check every 10s
+    fetchData();
+    const interval = setInterval(fetchData, 5000); // Check every 5s
     return () => clearInterval(interval);
   }, []);
 

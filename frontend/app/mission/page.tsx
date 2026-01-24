@@ -24,18 +24,20 @@ export default function MissionPage() {
         networkOrientation: number[];
         zkSystemStatus: string;
     } | null>(null);
-    const [metrics, setMetrics] = useState<any>(null);
-    const [relayers, setRelayers] = useState<any[]>([]);
+    const [version, setVersion] = useState<{ protocol: string; gateway: string } | null>(null);
 
-    // GET /api/telemetry
+    // Poll telemetry and version
     useEffect(() => {
-        const fetchTelemetry = async () => {
+        const fetchAll = async () => {
             try {
-                const data = await apiClient.getTelemetry();
-                setTelemetry(data);
+                const [telemetryData, versionData] = await Promise.all([
+                    apiClient.getTelemetry(),
+                    apiClient.getVersion()
+                ]);
+                setTelemetry(telemetryData);
+                setVersion(versionData);
             } catch (error) {
-                console.error('Failed to fetch telemetry:', error);
-                // Fallback values
+                console.error('Failed to fetch mission data:', error);
                 setTelemetry({
                     bridgeLink: 'DEGRADED',
                     encryptionEngine: 'UNLOCKED',
@@ -45,40 +47,8 @@ export default function MissionPage() {
             }
         };
 
-        fetchTelemetry();
-        const interval = setInterval(fetchTelemetry, 10000); // Refresh every 10s
-        return () => clearInterval(interval);
-    }, []);
-
-    // GET /api/metrics
-    useEffect(() => {
-        const fetchMetrics = async () => {
-            try {
-                const data = await apiClient.getMetrics();
-                setMetrics(data);
-            } catch (error) {
-                console.error('Failed to fetch metrics:', error);
-            }
-        };
-
-        fetchMetrics();
-        const interval = setInterval(fetchMetrics, 15000); // Refresh every 15s
-        return () => clearInterval(interval);
-    }, []);
-
-    // GET /api/relayers
-    useEffect(() => {
-        const fetchRelayers = async () => {
-            try {
-                const data = await apiClient.getRelayers();
-                setRelayers(data);
-            } catch (error) {
-                console.error('Failed to fetch relayers:', error);
-            }
-        };
-
-        fetchRelayers();
-        const interval = setInterval(fetchRelayers, 20000); // Refresh every 20s
+        fetchAll();
+        const interval = setInterval(fetchAll, 5000); // Refresh every 5s
         return () => clearInterval(interval);
     }, []);
 
@@ -154,7 +124,7 @@ export default function MissionPage() {
                         <div className="border border-white/10 bg-black/60 p-12 shadow-3xl relative overflow-hidden group">
                             {/* Industrial HUD elements */}
                             <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <span className="text-[60px] font-black italic">ZK-7</span>
+                                <span className="text-[60px] font-black italic">{version?.protocol || 'ZK-7'}</span>
                             </div>
 
                             <div className="space-y-10 relative z-10">

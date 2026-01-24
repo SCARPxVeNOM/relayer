@@ -146,7 +146,7 @@ export const TransferForm: React.FC = () => {
         >
           {isSubmitting ? (
             <div className="flex items-center gap-3">
-              <Loader2 className="w-4 h-4" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               Executing Bridge...
             </div>
           ) : (

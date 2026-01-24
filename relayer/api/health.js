@@ -40,8 +40,9 @@ class HealthAPI {
 
         if (url.pathname === '/health') {
           await this.handleHealth(req, res);
-        } else if (url.pathname === '/metrics') {
-          await this.handleMetrics(req, res);
+        } else if (url.pathname === '/metrics' && req.headers.accept?.includes('text/plain')) {
+           // Handle Prometheus if accept header matches or if path is specific
+           await this.handlePrometheusMetrics(req, res);
         } else if (url.pathname === '/metrics/prometheus') {
           await this.handlePrometheusMetrics(req, res);
         } else if (url.pathname === '/status') {
@@ -49,6 +50,27 @@ class HealthAPI {
         } else if (url.pathname === '/api/telemetry') {
           const { getTelemetry } = await import('./telemetry.js');
           await getTelemetry(req, res);
+        } else if (url.pathname === '/api/latency') {
+          const { getLatency } = await import('./telemetry.js');
+          await getLatency(req, res);
+        } else if (url.pathname === '/api/heartbeat') {
+          const { getHeartbeat } = await import('./telemetry.js');
+          await getHeartbeat(req, res);
+        } else if (url.pathname === '/api/metrics' && !url.searchParams.get('format')) { // Avoid conflict with prometheus
+          const { getDetailedMetrics } = await import('./telemetry.js');
+          await getDetailedMetrics(req, res);
+        } else if (url.pathname === '/api/chains') {
+          const { getChains } = await import('./telemetry.js');
+          await getChains(req, res);
+        } else if (url.pathname === '/api/aleo/status') {
+          const { getAleoStatus } = await import('./telemetry.js');
+          await getAleoStatus(req, res);
+        } else if (url.pathname === '/api/version') {
+          const { getVersion } = await import('./telemetry.js');
+          await getVersion(req, res);
+        } else if (url.pathname === '/api/relayers') {
+          const { getRelayers } = await import('./telemetry.js');
+          await getRelayers(req, res);
         } else if (url.pathname === '/api/session/init' && req.method === 'POST') {
           const { initSession } = await import('./session.js');
           await initSession(req, res);

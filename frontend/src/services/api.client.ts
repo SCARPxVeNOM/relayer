@@ -142,6 +142,79 @@ class APIClient {
   }
 
   /**
+   * GET /api/latency
+   * Median control-plane latency
+   */
+  async getLatency(scope?: string): Promise<{ value: number; unit: string; status: string }> {
+    const url = scope ? `${this.baseUrl}/api/latency?scope=${scope}` : `${this.baseUrl}/api/latency`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Latency fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * GET /api/heartbeat
+   * Pulse rate based on queue activity
+   */
+  async getHeartbeat(): Promise<{ pulseRate: string; activity: number; timestamp: number }> {
+    const response = await fetch(`${this.baseUrl}/api/heartbeat`);
+    if (!response.ok) {
+      throw new Error(`Heartbeat fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * GET /api/chains
+   * Bridge link status
+   */
+  async getChains(): Promise<{ linkStatus: string; chains: any[] }> {
+    const response = await fetch(`${this.baseUrl}/api/chains`);
+    if (!response.ok) {
+      throw new Error(`Chains fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * GET /api/aleo/status
+   * Encryption engine status
+   */
+  async getAleoStatus(): Promise<{ status: string; program: string; zkProof: string }> {
+    const response = await fetch(`${this.baseUrl}/api/aleo/status`);
+    if (!response.ok) {
+      throw new Error(`Aleo status fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * GET /api/version
+   * Protocol version
+   */
+  async getVersion(): Promise<{ protocol: string; gateway: string; build: string }> {
+    const response = await fetch(`${this.baseUrl}/api/version`);
+    if (!response.ok) {
+      throw new Error(`Version fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * GET /api/relayers (new endpoint)
+   * Active node info
+   */
+  async getRelayerInfo(): Promise<{ activeNode: string; availableUplinks: number; region: string }> {
+    const response = await fetch(`${this.baseUrl}/api/relayers`);
+    if (!response.ok) {
+      throw new Error(`Relayer info fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
    * POST /api/session/init
    * Initialize control session (no blockchain action)
    */
