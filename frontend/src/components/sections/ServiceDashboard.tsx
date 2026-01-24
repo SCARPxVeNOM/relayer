@@ -27,7 +27,7 @@ export function ServiceDashboard() {
     const isCommandCoreEnabled = aleoConnected && controlSessionActive;
 
     // Debug: Log connection status
-    React.useEffect(() => {
+    useEffect(() => {
         if (wallet) {
             console.log('Wallet adapter:', wallet.adapter.name);
             console.log('Wallet ready:', wallet.adapter.ready);
