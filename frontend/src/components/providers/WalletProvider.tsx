@@ -37,14 +37,22 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
         // The WalletModal tries to auto-connect in useLayoutEffect, which causes this error
         // This doesn't prevent manual connection when user clicks the button
         const errorMessage = error?.message || error?.toString() || '';
+        const errorName = error?.name || '';
+        
+        // Check for invalid params error (happens during modal auto-connect)
         if (
           errorMessage.includes('invalid') || 
           errorMessage.includes('INVALID_PARAMS') ||
-          errorMessage.includes('Some of the parameters')
+          errorMessage.includes('Some of the parameters') ||
+          errorName === 'WalletConnectionError'
         ) {
-          // Silently suppress - this is expected during modal initialization
-          // User can still connect manually via WalletMultiButton
-          return;
+          // Only suppress if it's the specific invalid params error
+          // Other connection errors should still be logged
+          if (errorMessage.includes('invalid') || errorMessage.includes('INVALID_PARAMS')) {
+            // Silently suppress - this is expected during modal initialization
+            // User can still connect manually via WalletMultiButton
+            return;
+          }
         }
         console.error('Wallet adapter error:', error);
       }}
