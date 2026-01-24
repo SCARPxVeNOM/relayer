@@ -18,13 +18,13 @@ services:
       - key: RELAYER_PK
         sync: false # Set manually in Render dashboard
       
-      # Aleo Configuration
+      # Aleo Configuration (v2 API)
       - key: ALEO_PROGRAM_ID
         value: privacy_box_mvp.aleo
       - key: ALEO_VIEW_KEY
         sync: false # Set manually if you have a view key
-      - key: ALEO_RPC_URL
-        value: https://api.explorer.aleo.org/v1
+      - key: ALEO_RPC
+        value: https://api.explorer.provable.com/v2/testnet
       
       # RPC URLs
       - key: SEPOLIA_RPC

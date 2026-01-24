@@ -173,7 +173,7 @@ POLYGON_AMOY_RPC=https://...         # Polygon Amoy RPC endpoint
 # Aleo Integration (Required for real Aleo monitoring)
 ALEO_VIEW_KEY=your_view_key          # Aleo view key for decrypting private inputs
 ALEO_PROGRAM_ID=privacy_box_mvp.aleo # Aleo program ID (default: privacy_box_mvp.aleo)
-ALEO_RPC=https://api.explorer.provable.com/v1/testnet3  # Aleo RPC endpoint (optional)
+ALEO_RPC=https://api.explorer.provable.com/v2/testnet  # Aleo API v2 endpoint (default)
 ALEO_POLL_INTERVAL=10000             # Polling interval in ms (default: 10000)
 
 # Multiple Wallets (Optional - for parallel execution)
@@ -241,6 +241,37 @@ Ethereum Sepolia / Polygon Amoy
    - Gas optimization
    - Security audits
    - Database persistence for processed transactions
+
+## 🚀 Render Deployment
+
+The relayer is deployed on Render at: **https://relayer-43bm.onrender.com**
+
+### Required Environment Variables on Render
+
+Set these in your Render dashboard (Environment → Environment Variables):
+
+**Required:**
+- `RELAYER_PK` - Your relayer private key (starts with `0x`)
+- `ALEO_VIEW_KEY` - Your Aleo view key (if you have one)
+
+**Optional (defaults provided):**
+- `ALEO_RPC` - Default: `https://api.explorer.provable.com/v2/testnet`
+- `ALEO_PROGRAM_ID` - Default: `privacy_box_mvp.aleo`
+- `SEPOLIA_RPC` - Default: `https://rpc.sepolia.org`
+- `POLYGON_AMOY_RPC` - Default: `https://rpc-amoy.polygon.technology`
+- `HEALTH_PORT` - Default: `3001`
+
+### Frontend Configuration
+
+If deploying the frontend, set:
+- `NEXT_PUBLIC_RELAYER_API_URL=https://relayer-43bm.onrender.com`
+
+### Health Check
+
+Check service status:
+- Health: `https://relayer-43bm.onrender.com/health`
+- Metrics: `https://relayer-43bm.onrender.com/metrics`
+- Telemetry: `https://relayer-43bm.onrender.com/api/telemetry`
 
 ## 📚 Resources
 
