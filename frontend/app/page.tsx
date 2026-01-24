@@ -19,7 +19,7 @@ import { apiClient } from "@/services/api.client";
  * - Session initialization (backend API call only)
  */
 export default function Home() {
-  const { publicKey, connect, select, wallet, connected } = useWallet();
+  const { publicKey, connect, select, wallet, wallets, connected } = useWallet();
   const { initSession, controlSessionActive } = useSessionStore();
   const aleoConnected = connected && !!publicKey;
   const [systemReady, setSystemReady] = useState(false);
@@ -56,11 +56,30 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      // First select the Leo wallet if not already selected
-      if (!wallet) {
-        select('Leo');
+      // If wallet is already selected, just connect
+      if (wallet) {
+        await connect();
+        return;
       }
-      // Then connect
+
+      // Find and select Leo wallet adapter
+      const leoWallet = wallets.find(w => 
+        w.adapter.name === 'Leo' || 
+        w.adapter.name === 'Leo Wallet' ||
+        w.adapter.name.toLowerCase().includes('leo')
+      );
+      
+      if (!leoWallet) {
+        throw new Error('Leo Wallet adapter not found. Please install Leo Wallet extension.');
+      }
+
+      // Select the wallet first
+      await select(leoWallet.adapter.name);
+      
+      // Wait for selection to propagate
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Now connect
       await connect();
     } catch (error) {
       console.error('Failed to connect:', error);

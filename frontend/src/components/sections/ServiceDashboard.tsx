@@ -18,7 +18,7 @@ import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
  * - Disabled unless: aleoConnected AND controlSessionActive
  */
 export function ServiceDashboard() {
-    const { publicKey, wallet, connect, disconnect, select, connecting, connected } = useWallet();
+    const { publicKey, wallet, connect, disconnect, select, wallets, connecting, connected } = useWallet();
     const { controlSessionActive } = useSessionStore();
 
     const [leoError, setLeoError] = useState<string | null>(null);
@@ -26,12 +26,30 @@ export function ServiceDashboard() {
     const handleConnectLeoWallet = async () => {
         setLeoError(null);
         try {
-            // First select the Leo wallet if not already selected
-            if (!wallet) {
-                // Find Leo wallet adapter name
-                select('Leo');
+            // If wallet is already selected, just connect
+            if (wallet) {
+                await connect();
+                return;
             }
-            // Then connect
+
+            // Find and select Leo wallet adapter
+            const leoWallet = wallets.find(w => 
+                w.adapter.name === 'Leo' || 
+                w.adapter.name === 'Leo Wallet' ||
+                w.adapter.name.toLowerCase().includes('leo')
+            );
+            
+            if (!leoWallet) {
+                throw new Error('Leo Wallet adapter not found. Please install Leo Wallet extension.');
+            }
+
+            // Select the wallet first
+            await select(leoWallet.adapter.name);
+            
+            // Wait for selection to propagate
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Now connect
             await connect();
         } catch (error: any) {
             setLeoError(error.message || 'Leo Wallet Connection Failed');
