@@ -2,9 +2,8 @@
 
 import { useSessionStore } from '../../stores/session.store';
 import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
-import { useWalletModal } from '@demox-labs/aleo-wallet-adapter-reactui';
+import { WalletMultiButton } from '@demox-labs/aleo-wallet-adapter-reactui';
 import { TransferForm } from '../TransferForm';
-import { WalletButton } from '../WalletButton';
 import { useState } from 'react';
 import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
 
