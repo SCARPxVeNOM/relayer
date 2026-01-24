@@ -2,6 +2,8 @@
 
 import { Gauge, Globe } from "lucide-react";
 import { ServiceDashboard } from "@/components/sections/ServiceDashboard";
+import { useEffect, useState } from "react";
+import { apiClient } from "@/services/api.client";
 
 /**
  * PAGE 3 — COMMAND CORE
@@ -15,6 +17,25 @@ import { ServiceDashboard } from "@/components/sections/ServiceDashboard";
  * - Disabled unless: Aleo wallet connected AND session initialized
  */
 export default function ProtocolPage() {
+    const [activeNode, setActiveNode] = useState<string>('ORBITAL_GATEWAY_7');
+
+    // Fetch active node from backend
+    useEffect(() => {
+        const fetchNode = async () => {
+            try {
+                const info = await apiClient.getRelayerInfo();
+                setActiveNode(info.activeNode);
+            } catch (error) {
+                console.error('Failed to fetch relayer info:', error);
+                // Keep default value
+            }
+        };
+
+        fetchNode();
+        const interval = setInterval(fetchNode, 10000); // Update every 10s
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <div className="relative min-h-screen font-mono antialiased text-white overflow-hidden">
 
@@ -51,7 +72,7 @@ export default function ProtocolPage() {
 
                         <div className="hidden lg:flex flex-col items-end gap-2 text-right">
                             <span className="hud-text text-white/20">Active Node:</span>
-                            <span className="text-2xl font-black italic tracking-tighter text-secondary leading-none uppercase">Orbital_Gateway_7</span>
+                            <span className="text-2xl font-black italic tracking-tighter text-secondary leading-none uppercase">{activeNode}</span>
                         </div>
                     </div>
 

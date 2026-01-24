@@ -28,6 +28,7 @@ export default function Home() {
   const [uplinkStatus, setUplinkStatus] = useState<string>("Checking...");
   const [orbitLocked, setOrbitLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [heartbeatPulse, setHeartbeatPulse] = useState<'IDLE' | 'NORMAL' | 'FAST'>('IDLE');
 
   // On page load: GET /api/health and /api/latency
   useEffect(() => {
@@ -41,9 +42,11 @@ export default function Home() {
 
         const healthData = health.status === 'fulfilled' ? health.value : null;
         const latencyData = latency.status === 'fulfilled' ? latency.value : { value: 25, unit: 'ms', status: 'SECURED' };
+        const heartbeatData = heartbeat.status === 'fulfilled' ? heartbeat.value : { pulseRate: 'IDLE', activity: 0, timestamp: Date.now() };
         
         setSystemReady(healthData?.status === 'healthy');
         setUplinkStatus(`${latencyData.status}_${latencyData.value}${latencyData.unit}`);
+        setHeartbeatPulse(heartbeatData.pulseRate as 'IDLE' | 'NORMAL' | 'FAST');
         setOrbitLocked(true);
       } catch (error) {
         console.error('Data fetch failed:', error);
@@ -127,6 +130,26 @@ export default function Home() {
                 <div className="flex items-center gap-4">
                   <span className="hud-text text-white/40">Uplink:</span>
                   <span className="hud-text text-secondary">{uplinkStatus}</span>
+                </div>
+                {/* Heartbeat Pulse Bars - Visual indicator of queue activity */}
+                <div className="h-5 w-px bg-white/10" />
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1 w-8 transition-all duration-300 ${
+                        heartbeatPulse === 'FAST' 
+                          ? 'bg-primary animate-pulse' 
+                          : heartbeatPulse === 'NORMAL' 
+                          ? 'bg-primary/60' 
+                          : 'bg-white/10'
+                      }`}
+                      style={{
+                        animationDelay: heartbeatPulse === 'FAST' ? `${i * 0.1}s` : '0s',
+                        animationDuration: heartbeatPulse === 'FAST' ? '0.5s' : '2s'
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             </div>

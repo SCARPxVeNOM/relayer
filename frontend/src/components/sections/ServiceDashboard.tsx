@@ -20,6 +20,9 @@ import { useEffect } from 'react';
 export function ServiceDashboard() {
     const { publicKey, connected, wallet, connecting } = useWallet();
     const { controlSessionActive } = useSessionStore();
+    const [relayerInfo, setRelayerInfo] = useState<{ activeNode: string; region: string } | null>(null);
+    const [latency, setLatency] = useState<string>('0ms');
+    const [systemHealth, setSystemHealth] = useState<number[]>([1, 1, 1, 1, 0]); // Status bars
 
     // Check if Command Core is enabled
     // Must have: Aleo connected AND session active
@@ -27,14 +30,45 @@ export function ServiceDashboard() {
     const aleoAddress = publicKey?.toString() || null;
     const isCommandCoreEnabled = aleoConnected && controlSessionActive;
 
-    // Debug: Log connection status
+    // Fetch active node info, latency, and system health
     useEffect(() => {
-        if (wallet) {
-            console.log('Wallet adapter:', wallet.adapter.name);
-            console.log('Wallet ready:', wallet.adapter.ready);
+        const fetchData = async () => {
+            try {
+                const [info, lat, health] = await Promise.allSettled([
+                    apiClient.getRelayerInfo(),
+                    apiClient.getLatency('control'),
+                    apiClient.getHealth()
+                ]);
+
+                if (info.status === 'fulfilled') {
+                    setRelayerInfo(info.value);
+                }
+
+                if (lat.status === 'fulfilled') {
+                    setLatency(`${lat.value.value}${lat.value.unit}`);
+                }
+
+                // Calculate status bars based on health
+                // 5 bars: 4 = healthy, 3 = degraded, 2 = warning, 1 = critical, 0 = offline
+                if (health.status === 'fulfilled' && health.value.status === 'healthy') {
+                    setSystemHealth([1, 1, 1, 1, 0]); // 4 bars = healthy
+                } else if (health.status === 'fulfilled' && health.value.status === 'degraded') {
+                    setSystemHealth([1, 1, 1, 0, 0]); // 3 bars = degraded
+                } else {
+                    setSystemHealth([1, 1, 0, 0, 0]); // 2 bars = warning
+                }
+            } catch (error) {
+                console.error('Dashboard data fetch failed:', error);
+                setSystemHealth([1, 0, 0, 0, 0]); // 1 bar = critical
+            }
+        };
+
+        if (controlSessionActive) {
+            fetchData();
+            const interval = setInterval(fetchData, 5000);
+            return () => clearInterval(interval);
         }
-        console.log('Connection status:', { connected, publicKey: publicKey?.toString(), connecting });
-    }, [wallet, connected, publicKey, connecting]);
+    }, [controlSessionActive]);
 
     return (
         <div className="flex flex-col bg-black border border-white/5">
@@ -47,19 +81,19 @@ export function ServiceDashboard() {
                     </div>
                     <div className="h-4 w-px bg-white/10" />
                     <div className="flex gap-2">
-                        {[1, 1, 1, 1, 0].map((v, i) => (
-                            <div key={i} className={`w-1.5 h-4 ${v ? 'bg-primary/60' : 'bg-white/5'}`} />
+                        {systemHealth.map((v, i) => (
+                            <div key={i} className={`w-1.5 h-4 transition-all duration-300 ${v ? 'bg-primary/60' : 'bg-white/5'}`} />
                         ))}
                     </div>
                 </div>
                 <div className="hidden md:flex items-center gap-8">
                     <div className="flex items-center gap-3">
                         <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Latency:</span>
-                        <span className="text-[10px] font-mono font-bold text-secondary tracking-widest">0.024ms</span>
+                        <span className="text-[10px] font-mono font-bold text-secondary tracking-widest">{latency}</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Sector:</span>
-                        <span className="text-[10px] font-mono font-bold text-white tracking-widest">ORBITAL-7</span>
+                        <span className="text-[10px] font-mono font-bold text-white tracking-widest">{relayerInfo?.activeNode || 'ORBITAL-7'}</span>
                     </div>
                 </div>
             </div>
