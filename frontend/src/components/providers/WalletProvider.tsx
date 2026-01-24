@@ -33,6 +33,12 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
       network={WalletAdapterNetwork.Testnet}
       autoConnect={false}
       onError={(error) => {
+        // Suppress the "invalid parameters" error - it's a known issue with the adapter
+        // The modal will handle connection properly when user manually selects wallet
+        if (error?.message?.includes('invalid') || error?.message?.includes('INVALID_PARAMS')) {
+          console.warn('Wallet connection error (suppressed):', error.message);
+          return;
+        }
         console.error('Wallet adapter error:', error);
       }}
     >
