@@ -19,7 +19,7 @@ import { apiClient } from "@/services/api.client";
  * - Session initialization (backend API call only)
  */
 export default function Home() {
-  const { publicKey, connect, connected } = useWallet();
+  const { publicKey, connect, select, wallet, connected } = useWallet();
   const { initSession, controlSessionActive } = useSessionStore();
   const aleoConnected = connected && !!publicKey;
   const [systemReady, setSystemReady] = useState(false);
@@ -56,6 +56,11 @@ export default function Home() {
 
     setIsLoading(true);
     try {
+      // First select the Leo wallet if not already selected
+      if (!wallet) {
+        select('Leo');
+      }
+      // Then connect
       await connect();
     } catch (error) {
       console.error('Failed to connect:', error);
