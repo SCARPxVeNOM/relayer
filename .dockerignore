@@ -1,0 +1,13 @@
+node_modules
+.git
+.env
+.env.local
+*.log
+*.md
+!FLY_IO_DEPLOYMENT.md
+tests
+scripts
+*.test.js
+.gitignore
+render.yaml
+RENDER_DEPLOYMENT.md

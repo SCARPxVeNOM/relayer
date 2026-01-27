@@ -1,0 +1,34 @@
+# Privacy Bridge Relayer - Fly.io Configuration
+# https://fly.io/docs/reference/configuration/
+
+app = "privacy-bridge-relayer"
+primary_region = "sjc"  # San Jose (or pick your preferred region)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  LEO_PATH = "/root/.cargo/bin/leo"
+  ALEO_USE_REAL_NETWORK = "true"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = false  # Keep running for blockchain listener
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  timeout = "10s"
+
+[[vm]]
+  memory = "2gb"  # 2GB RAM for ZK proof generation
+  cpu_kind = "shared"
+  cpus = 2  # 2 CPUs for faster proofs
