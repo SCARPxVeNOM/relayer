@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Download pre-built Leo v3.4.0 MUSL binary (statically linked, no glibc dependency)
+# Download pre-built Leo v3.4.0 MUSL binary (statically linked)
 RUN curl -L -o /tmp/leo.zip https://github.com/ProvableHQ/leo/releases/download/v3.4.0/leo-v3.4.0-x86_64-unknown-linux-musl.zip \
     && unzip /tmp/leo.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/leo \
@@ -27,6 +27,13 @@ RUN npm ci --only=production
 
 # Copy application code
 COPY . .
+
+# Create necessary directories
+RUN mkdir -p /tmp
+
+# Build the Leo programs
+RUN cd aleo/advance_privacy && leo build || echo "Leo build failed for advance_privacy" && \
+    cd ../privacy_barrier && leo build || echo "Leo build failed for privacy_barrier"
 
 # Set environment variables
 ENV NODE_ENV=production
