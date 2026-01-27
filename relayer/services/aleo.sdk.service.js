@@ -1,7 +1,7 @@
 /**
  * Aleo SDK Service - Real Testnet Transaction Creation with Full SDK Integration
  * 
- * This service uses @provablehq/sdk to broadcast real transactions to Aleo testnet
+ * This service uses @provablehq/sdk v0.7.5 to broadcast real transactions to Aleo testnet
  */
 
 import { Account, ProgramManager, AleoKeyProvider, AleoNetworkClient, NetworkRecordProvider } from '@provablehq/sdk';
@@ -21,9 +21,9 @@ class AleoSDKService {
         }
 
         try {
-            // Initialize Aleo account from private key
-            this.account = Account.from_string(this.privateKey);
-            const address = this.account.to_address().to_string();
+            // Initialize Aleo account from private key (SDK v0.7.5 API)
+            this.account = new Account({ privateKey: this.privateKey });
+            const address = this.account.address().toString();
 
             logger.info('Aleo account initialized', {
                 address,
@@ -139,7 +139,7 @@ class AleoSDKService {
      */
     async getBalance() {
         try {
-            const address = this.account.to_address().to_string();
+            const address = this.account.address().toString();
             const balance = await this.networkClient.getBalance(address);
             logger.info('Account balance', { address, balance });
             return balance;
