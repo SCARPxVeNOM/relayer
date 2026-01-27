@@ -1,0 +1,61 @@
+﻿≡ƒôó Loading environment variables from a `.env` file in the directory tree.
+  - NETWORK=testnet
+  - PRIVATE_KEY=APrivateKey1zkp3z7V6oJX3RtJeND6sLsUCKnJdqBs86MV8qdDvK1X7KD3
+  - ENDPOINT=https://api.explorer.provable.com/v1
+       Leo     2 statements before dead code elimination.
+       Leo     2 statements after dead code elimination.
+       Leo     The program checksum is: '[118u8, 206u8, 245u8, 5u8, 117u8, 97u8, 29u8, 82u8, 249u8, 127u8, 135u8, 42u8, 49u8, 84u8, 64u8, 35u8, 229u8, 25u8, 163u8, 235u8, 101u8, 107u8, 206u8, 170u8, 101u8, 144u8, 50u8, 66u8, 180u8, 166u8, 247u8, 101u8]'.
+       Leo Γ£à Compiled 'privacy_box_v2.aleo' into Aleo instructions.
+
+≡ƒôó Using the following consensus heights: 0,2950000,4800000,6625000,6765000,7600000,8365000,9173000,9800000,10525000,11952000,12669000
+  To override, pass in `--consensus-heights` or override the environment variable `CONSENSUS_VERSION_HEIGHTS`.
+
+Attempting to determine the consensus version from the latest block height at https://api.explorer.provable.com/v1...
+
+≡ƒ¢á∩╕Å  Deployment Plan Summary
+ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+≡ƒöº Configuration:
+  Private Key:        APrivateKey1zkp3z7V6oJX3...
+  Address:            aleo1sqtc9nm359um4drfyc7...
+  Endpoint:           https://api.explorer.provable.com/v1
+  Network:            testnet
+  Consensus Version:  12
+
+≡ƒôª Deployment Tasks:
+  ΓÇó privacy_box_v2.aleo  Γöé priority fee: 0  Γöé fee record: no (public fee)
+
+ΓÜÖ∩╕Å Actions:
+  ΓÇó Transaction(s) will NOT be printed to the console.
+  ΓÇó Transaction(s) will NOT be saved to a file.
+  ΓÇó Transaction(s) will be broadcast to https://api.explorer.provable.com/v1
+
+ΓÜá∩╕Å Warnings:
+  ΓÇó The program 'privacy_box_v2.aleo' does not contain a constructor. The deployment will likely fail
+ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+
+leo : Error 
+[ECLI0377042]: 
+Failed to prompt 
+user: IO error: not 
+a terminal
+At line:1 char:1
++ leo deploy 
+--broadcast 2>&1 | 
+Out-File -FilePath 
+deploy-output.txt -E 
+...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Error [   
+ ECLI0377... not     
+a terminal:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+

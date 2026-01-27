@@ -1,0 +1,5 @@
+{
+  "message": "Error finding undefined. Network response: 'Error fetching program'. Please ensure you're connected to a valid Aleo network the program is deployed to the network.",
+  "stack": "Error: Error finding undefined. Network response: 'Error fetching program'. Please ensure you're connected to a valid Aleo network the program is deployed to the network.\n    at logAndThrow (file:///C:/Users/aryan/Desktop/envelop%20-%20Copy/node_modules/@provablehq/sdk/dist/testnet/program-manager-4e9a7ef4.js:5:11)\n    at ProgramManager.buildExecutionTransaction (file:///C:/Users/aryan/Desktop/envelop%20-%20Copy/node_modules/@provablehq/sdk/dist/testnet/program-manager-4e9a7ef4.js:1338:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async ProgramManager.execute (file:///C:/Users/aryan/Desktop/envelop%20-%20Copy/node_modules/@provablehq/sdk/dist/testnet/program-manager-4e9a7ef4.js:1418:20)\n    at async testSDK (file:///C:/Users/aryan/Desktop/envelop%20-%20Copy/scripts/test-sdk-mvp.js:78:22)",
+  "name": "Error"
+}
