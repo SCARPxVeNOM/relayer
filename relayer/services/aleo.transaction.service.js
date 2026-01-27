@@ -19,6 +19,9 @@ const logger = createLogger('AleoTransactionService');
 const ALEO_RPC = process.env.ALEO_RPC || 'https://api.explorer.provable.com/v2/testnet';
 const PROGRAM_ID = process.env.ALEO_PROGRAM_ID || 'privacy_box_mvp.aleo';
 
+// Feature flag: Use real Aleo network or simulation
+const USE_REAL_NETWORK = process.env.ALEO_USE_REAL_NETWORK === 'true';
+
 /**
  * Aleo Transaction Service
  * 
@@ -52,6 +55,16 @@ class AleoTransactionService {
      */
     async createRequestTransfer(amount, chainId, recipientEVM) {
         try {
+            // Check if we should use real network
+            if (USE_REAL_NETWORK) {
+                logger.info('Using REAL Aleo network mode');
+                const AleoSDKService = (await import('./aleo.sdk.service.js')).default;
+                const sdkService = new AleoSDKService();
+                return await sdkService.createRequestTransfer(amount, chainId, recipientEVM);
+            }
+
+            // Otherwise use simulation mode
+            logger.info('Using SIMULATION mode (set ALEO_USE_REAL_NETWORK=true for real network)');
             logger.info('Creating request_transfer transaction', {
                 amount,
                 chainId,
