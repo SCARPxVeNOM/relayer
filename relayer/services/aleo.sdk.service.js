@@ -14,7 +14,8 @@ class AleoSDKService {
     constructor() {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = process.env.ALEO_PROGRAM_ID || 'privacy_box_mvp.aleo';
-        this.networkUrl = process.env.ALEO_RPC || 'https://api.explorer.provable.com/v2/testnet';
+        this.networkUrl = process.env.ALEO_RPC || 'https://api.explorer.provable.com/v1';
+
 
         if (!this.privateKey) {
             throw new Error('ALEO_PRIVATE_KEY not configured - cannot create real transactions');
