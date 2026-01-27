@@ -23,8 +23,10 @@ class AleoCliService {
         this.endpoint = 'https://api.explorer.provable.com/v1';
         // Path to the Leo project directory
         this.projectDir = path.resolve(__dirname, '../../aleo/privacy_barrier');
-        // Leo executable path
-        this.leoPath = process.env.LEO_PATH || 'C:\\Users\\aryan\\.cargo\\bin\\leo.exe';
+        // Leo executable path - configurable for different environments
+        this.leoPath = process.env.LEO_PATH || (process.platform === 'win32'
+            ? 'C:\\Users\\aryan\\.cargo\\bin\\leo.exe'
+            : '/root/.cargo/bin/leo');
 
         if (!this.privateKey) {
             throw new Error('ALEO_PRIVATE_KEY not configured');

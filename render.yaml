@@ -1,64 +1,25 @@
-# Render Blueprint - Backend Relayer Service
-# Deploy at: https://dashboard.render.com
-
 services:
   - type: web
-    name: envelope-relayer
-    env: node
-    plan: starter # or standard for production
-    buildCommand: npm install
-    startCommand: npm start
+    name: privacy-bridge-relayer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: starter # or 'standard' for more resources
     healthCheckPath: /health
     envVars:
-      # Node Environment
       - key: NODE_ENV
         value: production
-      
-      # Relayer Private Keys (REQUIRED)
-      - key: RELAYER_PK
-        sync: false # Set manually in Render dashboard
-      
-      # Aleo Configuration (v2 API)
-      - key: ALEO_PROGRAM_ID
-        value: privacy_box_mvp.aleo
-      - key: ALEO_VIEW_KEY
-        sync: false # Set manually if you have a view key
-      - key: ALEO_RPC
-        value: https://api.explorer.provable.com/v2/testnet
-      
-      # RPC URLs
-      - key: SEPOLIA_RPC
-        value: https://rpc.sepolia.org
-      - key: POLYGON_AMOY_RPC
-        value: https://rpc-amoy.polygon.technology
-      
-      # Health API Port
-      - key: HEALTH_PORT
+      - key: PORT
         value: 3001
-      
-      # Batching Configuration
-      - key: MAX_BATCH_SIZE
-        value: 5
-      - key: MAX_BATCH_WAIT_TIME
-        value: 10000
-      - key: BATCH_WINDOW_MS
-        value: 10000
-      
-      # Rate Limiting
-      - key: ALEO_RATE_LIMIT_RPS
-        value: 5
-      - key: ALEO_RATE_LIMIT_RPM
-        value: 100
-      
-      # Database
-      - key: DB_PATH
-        value: /tmp/transactions.db # Render provides /tmp for persistent storage
-      
-      # Retry Configuration
-      - key: MAX_RETRIES
-        value: 3
-      - key: RETRY_DELAY
-        value: 60000
-      - key: RETRY_PROCESSOR_INTERVAL
-        value: 300000
-
+      - key: ALEO_PRIVATE_KEY
+        sync: false # Set this manually in Render dashboard
+      - key: RELAYER_PK
+        sync: false # Set this manually in Render dashboard
+      - key: SEPOLIA_RPC
+        sync: false
+      - key: POLYGON_AMOY_RPC
+        sync: false
+      - key: ALEO_USE_REAL_NETWORK
+        value: "true"
+      - key: LEO_PATH
+        value: /root/.cargo/bin/leo
