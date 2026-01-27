@@ -53,7 +53,7 @@ export async function createIntent(req, res) {
     // Create Aleo request_transfer transaction
     // This calls the Aleo program to create the private intent
     try {
-      const AleoTransactionService = (await import('./services/aleo.transaction.service.js')).default;
+      const AleoTransactionService = (await import('../services/aleo.transaction.service.js')).default;
       const aleoTxService = new AleoTransactionService();
 
       // Create real Aleo transaction
