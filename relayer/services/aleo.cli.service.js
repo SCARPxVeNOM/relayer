@@ -223,7 +223,12 @@ class AleoCliService {
 
             return txId;
         } catch (error) {
-            logger.error('Failed to create intent', { error: error.message });
+            logger.error('Failed to create intent', {
+                message: error.message,
+                stack: error.stack,
+                error: error.toString(),
+                name: error.name
+            });
             throw error;
         }
     }
