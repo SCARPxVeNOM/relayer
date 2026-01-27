@@ -3,11 +3,18 @@
 import { Shield, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWalletStore } from "@/stores/wallet.store";
+import { useWallet } from "@demox-labs/aleo-wallet-adapter-react";
+import { WalletMultiButton } from "@demox-labs/aleo-wallet-adapter-reactui";
 import Link from "next/link";
+import { useState } from "react";
 
 export function Header() {
-    const { metamask, leoWallet } = useWalletStore();
-    const isConnected = metamask.connected || leoWallet.connected;
+    const { metamask, leoWallet: zustandLeoWallet } = useWalletStore();
+    const { publicKey, connected } = useWallet(); // Aleo wallet adapter
+    const [showWalletModal, setShowWalletModal] = useState(false);
+
+    // Consider connected if either MetaMask OR Aleo wallet is connected
+    const isConnected = metamask.connected || connected;
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-md">
@@ -40,9 +47,11 @@ export function Header() {
                                 <span className="text-secondary">Uplink Stable</span>
                             </div>
                         ) : (
-                            <Button variant="mission" size="sm" className="h-9 px-6">
-                                Connect Port <ChevronRight className="w-3.5 h-3.5 ml-2" />
-                            </Button>
+                            <div className="[&_.wallet-adapter-button]:!h-9 [&_.wallet-adapter-button]:!px-6 [&_.wallet-adapter-button]:!bg-transparent [&_.wallet-adapter-button]:!border [&_.wallet-adapter-button]:!border-primary/40 [&_.wallet-adapter-button]:!text-primary [&_.wallet-adapter-button:hover]:!bg-primary/5 [&_.wallet-adapter-button:hover]:!border-primary [&_.wallet-adapter-button]:!shadow-[0_0_20px_rgba(255,77,0,0.1)] [&_.wallet-adapter-button]:!text-[11px] [&_.wallet-adapter-button]:!font-black [&_.wallet-adapter-button]:!uppercase [&_.wallet-adapter-button]:!tracking-[0.2em] [&_.wallet-adapter-button]:!transition-all [&_.wallet-adapter-button]:!rounded-none [&_.wallet-adapter-button]:!flex [&_.wallet-adapter-button]:!items-center [&_.wallet-adapter-button]:!gap-2">
+                                <WalletMultiButton>
+                                    Connect Port <ChevronRight className="w-3.5 h-3.5 ml-2" />
+                                </WalletMultiButton>
+                            </div>
                         )}
                     </div>
                 </div>

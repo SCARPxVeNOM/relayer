@@ -9,6 +9,8 @@
     "relayer": "node relayer/index.js",
     "start:core": "node --loader ts-node/esm relayer/index.core.ts",
     "test:relayer": "node scripts/test-relayer.js",
+    "test:aleo": "node scripts/test-aleo-transaction.js",
+    "test:e2e": "node scripts/test-e2e.js",
     "check:leo": "node scripts/check-leo.js",
     "generate:key": "node scripts/generate-relayer-key.js",
     "deploy:aleo": "node scripts/deploy-aleo.js",
@@ -26,6 +28,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@provablehq/sdk": "^0.7.0",
     "better-sqlite3": "^11.6.0",
     "dotenv": "^17.2.3",
     "ethers": "^6.9.0",

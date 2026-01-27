@@ -92,7 +92,7 @@ class AleoListener {
             continue;
           }
         }
-        
+
         throw new Error("All endpoint attempts failed");
       });
     });
@@ -132,7 +132,8 @@ class AleoListener {
    */
   async getBlockTransactions(blockHeight) {
     try {
-      // GET /block/:height/transactions
+      // First, try to get real transactions from Aleo API
+      // GET /block/:height/transitions
       // https://developer.aleo.org/apis/v2/transactions-by-block-height
       const endpoints = this.getAleoBaseCandidates().map(
         (base) => `${base}/block/${blockHeight}/transactions`,
@@ -143,13 +144,26 @@ class AleoListener {
           const response = await fetch(endpoint);
           if (response.ok) {
             const data = await response.json();
-            return data.transactions || data || [];
+            const txs = data.transactions || data || [];
+
+            if (txs.length > 0) {
+              return txs;
+            }
           }
         } catch (e) {
           continue;
         }
       }
-      
+
+      // Fallback: Check for simulated transactions (MVP mode)
+      const AleoTransactionService = (await import('../services/aleo.transaction.service.js')).default;
+      const simulatedTxs = AleoTransactionService.getPendingTransactions() || [];
+
+      if (simulatedTxs.length > 0) {
+        logger.debug(`Using ${simulatedTxs.length} simulated transactions from local queue`);
+        return simulatedTxs;
+      }
+
       return [];
     } catch (error) {
       logger.warn(`Failed to get transactions for block ${blockHeight}: ${error.message}`);
@@ -177,7 +191,7 @@ class AleoListener {
       // The outputs contain encrypted records that need to be decrypted with the view key
       const outputs = transition.outputs || [];
       const inputs = transition.inputs || [];
-      
+
       // Try to extract from outputs (encrypted records)
       // Format: { type: 'record', ... } or ciphertext strings
       let amount = null;
@@ -192,7 +206,7 @@ class AleoListener {
           const u64Match = output.match(/(\d+)u64/);
           const u8Match = output.match(/(\d+)u8/);
           const addressMatch = output.match(/aleo1[a-z0-9]+/);
-          
+
           if (u64Match && !amount) {
             amount = u64Match[1];
           }
@@ -226,7 +240,7 @@ class AleoListener {
       // const { PrivateKey } = require('@provablehq/sdk');
       // const viewKeyObj = PrivateKey.from_string(viewKey);
       // const decrypted = await viewKeyObj.decrypt(output.ciphertext);
-      
+
       return null;
     } catch (error) {
       logger.error(`Failed to decrypt private inputs: ${error.message}`);
@@ -312,19 +326,19 @@ class AleoListener {
           const fullTransferTransition = fullTransitions.find(
             t => t.program === PROGRAM_ID && t.function === "request_transfer"
           );
-          
+
           if (fullTransferTransition) {
             // Try parsing inputs/outputs from full transaction
             const fullInputs = fullTransferTransition.inputs || [];
             const fullOutputs = fullTransferTransition.outputs || [];
-            
+
             // Parse all inputs and outputs more thoroughly
             [...fullInputs, ...fullOutputs].forEach(item => {
               if (typeof item === 'string') {
                 const u64Match = item.match(/(\d+)u64/);
                 const u8Match = item.match(/(\d+)u8/);
                 const addressMatch = item.match(/(aleo1[a-z0-9]+|0x[a-fA-F0-9]{40})/);
-                
+
                 if (u64Match && !amount) amount = u64Match[1];
                 if (u8Match && !chainId) chainId = parseInt(u8Match[1]);
                 if (addressMatch && !recipient) recipient = addressMatch[1];
@@ -347,8 +361,8 @@ class AleoListener {
 
       // Normalize recipient address (convert from Aleo format if needed)
       // For MVP, assume recipient is already in EVM format (0x...)
-      const normalizedRecipient = recipient.startsWith('0x') 
-        ? recipient 
+      const normalizedRecipient = recipient.startsWith('0x')
+        ? recipient
         : await this.convertAleoToEVMAddress(recipient);
 
       // Normalize amount (convert from Aleo units to ETH/MATIC units)
@@ -412,12 +426,12 @@ class AleoListener {
     // Convert from Aleo u64 units to ETH/MATIC units (divide by 10^18)
     // For MVP, assume amount is already in wei/gwei format or needs conversion
     const numAmount = typeof amount === 'string' ? parseInt(amount) : parseInt(amount);
-    
+
     // If amount is very large (> 10^15), assume it's in wei and convert
     if (numAmount > 1000000000000000) {
       return (numAmount / 1e18).toString();
     }
-    
+
     // Otherwise, assume it's already in human-readable format
     return numAmount.toString();
   }
@@ -427,23 +441,23 @@ class AleoListener {
    */
   async processTransaction(tx) {
     const txId = tx.id || tx.transaction_id || `${tx.blockHeight}-${tx.index || 0}`;
-    
+
     // Check persistent storage first
     if (transactionStorage.initialized && transactionStorage.isProcessed(txId)) {
       return;
     }
-    
+
     // Also check in-memory cache
     if (this.processedTransactions.has(txId)) {
       return;
     }
 
     const intent = await this.extractTransferIntent(tx);
-    
+
     if (intent) {
       // Mark as processed in both storage and memory
       this.processedTransactions.add(txId);
-      
+
       if (transactionStorage.initialized) {
         transactionStorage.markProcessed({
           txId,
@@ -455,9 +469,13 @@ class AleoListener {
           aleoTxId: txId,
         });
       }
-      
+
       logger.info("📦 Extracted transfer intent", intent);
-      
+
+      // Clean up simulated transaction from global queue
+      const AleoTransactionService = (await import('../services/aleo.transaction.service.js')).default;
+      AleoTransactionService.clearProcessedTransaction(txId);
+
       if (this.callback) {
         await this.callback(intent);
       }
@@ -475,9 +493,9 @@ class AleoListener {
 
     this.callback = callback;
     this.isPolling = true;
-    
+
     logger.info(`🔍 Starting Aleo transaction monitoring for ${PROGRAM_ID}...`);
-    
+
     if (!this.viewKey) {
       logger.warn("⚠️  No ALEO_VIEW_KEY provided - private input decryption may fail");
     }
@@ -496,19 +514,19 @@ class AleoListener {
 
       try {
         const currentHeight = await this.getLatestBlockHeight();
-        
+
         if (currentHeight > this.lastBlockHeight) {
           logger.debug(`Processing blocks ${this.lastBlockHeight + 1} to ${currentHeight}`);
-          
+
           // Process new blocks
           for (let height = this.lastBlockHeight + 1; height <= currentHeight; height++) {
             const txs = await this.getBlockTransactions(height);
-            
+
             for (const tx of txs) {
               await this.processTransaction(tx);
             }
           }
-          
+
           this.lastBlockHeight = currentHeight;
         }
       } catch (error) {
