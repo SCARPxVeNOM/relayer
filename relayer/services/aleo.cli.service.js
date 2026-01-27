@@ -1,8 +1,8 @@
 /**
- * Aleo CLI Service - Server-Side Transaction Creation
+ * Aleo CLI Service - Advanced Privacy Version
  * 
- * Uses Leo CLI to execute create_intent on privacy_barrier.aleo
- * NOTE: ZK proof generation takes ~30-60 seconds
+ * Uses Leo CLI to execute functions on advance_privacy.aleo
+ * Features: Private vaults, hidden amounts, balance verification, compliance checks
  */
 
 import { spawn } from 'child_process';
@@ -18,11 +18,11 @@ const __dirname = path.dirname(__filename);
 class AleoCliService {
     constructor() {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
-        this.programId = 'privacy_barrier.aleo';
+        this.programId = 'advance_privacy.aleo'; // New advanced privacy program!
         this.network = 'testnet';
         this.endpoint = 'https://api.explorer.provable.com/v1';
         // Path to the Leo project directory
-        this.projectDir = path.resolve(__dirname, '../../aleo/privacy_barrier');
+        this.projectDir = path.resolve(__dirname, '../../aleo/advance_privacy');
         // Leo executable path - configurable for different environments
         this.leoPath = process.env.LEO_PATH || (process.platform === 'win32'
             ? 'C:\\Users\\aryan\\.cargo\\bin\\leo.exe'
@@ -32,7 +32,7 @@ class AleoCliService {
             throw new Error('ALEO_PRIVATE_KEY not configured');
         }
 
-        logger.info('AleoCliService initialized', {
+        logger.info('AleoCliService initialized (Advanced Privacy)', {
             programId: this.programId,
             projectDir: this.projectDir,
             leoPath: this.leoPath
@@ -40,138 +40,164 @@ class AleoCliService {
     }
 
     /**
-     * Execute create_intent function using Leo CLI with spawn for better output handling
+     * Execute Leo CLI command and return transaction ID
      */
-    async createRequestTransfer(amount, chainId, recipientEVM) {
+    async executeLeoCommand(functionName, args) {
         return new Promise((resolve, reject) => {
-            try {
-                logger.info('Creating Aleo transaction via Leo CLI', { amount, chainId });
+            const fullArgs = [
+                'execute', functionName,
+                ...args,
+                '--broadcast', '--yes',
+                '--network', this.network,
+                '--endpoint', this.endpoint
+            ];
 
-                // Convert parameters
-                const amountU64 = BigInt(Math.floor(parseFloat(amount) * 1e18));
-                const chainCode = this.getChainCode(chainId);
+            logger.info(`Executing ${functionName}...`, { args: fullArgs.slice(0, 5) });
 
-                // Use the account address
-                const destAddress = 'aleo1sqtc9nm359um4drfyc7e4vg25nm7kufvzjqhk3e85tq77qfrvyfqt0krfq';
+            const leo = spawn(this.leoPath, fullArgs, {
+                cwd: this.projectDir,
+                shell: true
+            });
 
-                const args = [
-                    'execute', 'create_intent',
-                    `${amountU64}u64`,
-                    `${chainCode}u8`,
-                    destAddress,
-                    '--broadcast', '--yes',
-                    '--network', this.network,
-                    '--endpoint', this.endpoint
-                ];
+            let stdout = '';
+            let stderr = '';
 
-                logger.info('Spawning Leo process...', {
-                    leoPath: this.leoPath,
-                    args: args.join(' '),
-                    cwd: this.projectDir
-                });
+            leo.stdout.on('data', (data) => {
+                const chunk = data.toString();
+                stdout += chunk;
+                if (chunk.includes('transaction ID') || chunk.includes('Broadcasting')) {
+                    logger.info('Leo progress', { output: chunk.substring(0, 200) });
+                }
+            });
 
-                const leo = spawn(this.leoPath, args, {
-                    cwd: this.projectDir,
-                    shell: true
-                });
+            leo.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
 
-                let stdout = '';
-                let stderr = '';
+            const timeout = setTimeout(() => {
+                leo.kill();
+                reject(new Error('Leo CLI timeout after 5 minutes'));
+            }, 300000);
 
-                leo.stdout.on('data', (data) => {
-                    const chunk = data.toString();
-                    stdout += chunk;
-                    // Log progress
-                    if (chunk.includes('Executing') || chunk.includes('Broadcasting') || chunk.includes('transaction ID')) {
-                        logger.info('Leo progress', { output: chunk.substring(0, 200) });
-                    }
-                });
+            leo.on('close', (code) => {
+                clearTimeout(timeout);
 
-                leo.stderr.on('data', (data) => {
-                    stderr += data.toString();
-                });
+                if (code !== 0) {
+                    logger.error('Leo CLI error', { code, stderr: stderr.substring(0, 500) });
+                    reject(new Error(`Leo exited with code ${code}`));
+                    return;
+                }
 
-                // Set timeout (5 minutes for ZK proof generation)
-                const timeout = setTimeout(() => {
-                    leo.kill();
-                    reject(new Error('Leo CLI timeout after 5 minutes'));
-                }, 300000);
+                // Parse transaction ID
+                const txIdMatch = stdout.match(/transaction ID[:\s]+'(at1[a-z0-9]+)'/i);
+                if (txIdMatch && txIdMatch[1]) {
+                    logger.info('✅ Transaction confirmed', { txHash: txIdMatch[1] });
+                    resolve(txIdMatch[1]);
+                    return;
+                }
 
-                leo.on('close', (code) => {
-                    clearTimeout(timeout);
+                const anyTxMatch = stdout.match(/at1[a-z0-9]{58}/g);
+                if (anyTxMatch && anyTxMatch.length > 0) {
+                    logger.info('✅ Transaction found', { txHash: anyTxMatch[0] });
+                    resolve(anyTxMatch[0]);
+                    return;
+                }
 
-                    logger.info('Leo process completed', {
-                        code,
-                        stdoutLength: stdout.length,
-                        stderrLength: stderr.length
-                    });
+                if (stdout.includes('Execution confirmed') || stdout.includes('Transaction accepted')) {
+                    resolve('at1_confirmed_' + Date.now());
+                    return;
+                }
 
-                    if (code !== 0) {
-                        logger.error('Leo CLI exited with error', { code, stderr: stderr.substring(0, 500) });
-                        reject(new Error(`Leo CLI exited with code ${code}: ${stderr.substring(0, 200)}`));
-                        return;
-                    }
+                reject(new Error('Could not parse transaction ID'));
+            });
 
-                    // Parse transaction ID from output
-                    const txIdMatch = stdout.match(/transaction ID[:\s]+'(at1[a-z0-9]+)'/i);
-
-                    if (txIdMatch && txIdMatch[1]) {
-                        const txId = txIdMatch[1];
-                        logger.info('✅ Transaction broadcast via Leo CLI', {
-                            txHash: txId,
-                            explorer: `https://explorer.aleo.org/transaction/${txId}`,
-                        });
-                        resolve(txId);
-                        return;
-                    }
-
-                    // Try to find any transaction ID
-                    const anyTxMatch = stdout.match(/at1[a-z0-9]{58}/g);
-                    if (anyTxMatch && anyTxMatch.length > 0) {
-                        // Get the first non-fee transaction ID
-                        const txId = anyTxMatch[0];
-                        logger.info('✅ Transaction found via Leo CLI', {
-                            txHash: txId
-                        });
-                        resolve(txId);
-                        return;
-                    }
-
-                    // Check if execution was confirmed
-                    if (stdout.includes('Execution confirmed') || stdout.includes('Transaction accepted')) {
-                        logger.warn('Execution confirmed but no TX ID found');
-                        // Generate a placeholder that indicates success
-                        resolve('at1_execution_confirmed_' + Date.now());
-                        return;
-                    }
-
-                    logger.error('Could not parse transaction ID', {
-                        stdout: stdout.substring(0, 800)
-                    });
-                    reject(new Error('Transaction ID not found in Leo output'));
-                });
-
-                leo.on('error', (err) => {
-                    clearTimeout(timeout);
-                    logger.error('Leo spawn error', { error: err.message });
-                    reject(new Error(`Failed to spawn Leo: ${err.message}`));
-                });
-
-            } catch (error) {
-                reject(error);
-            }
+            leo.on('error', (err) => {
+                clearTimeout(timeout);
+                reject(new Error(`Failed to spawn Leo: ${err.message}`));
+            });
         });
     }
 
     /**
-     * Map EVM chain ID to Aleo chain code
+     * Create a private vault with hidden balance
+     * FEATURE 1: Real Privacy
      */
+    async initVault(amount) {
+        const amountU64 = BigInt(Math.floor(parseFloat(amount) * 1e18));
+        return await this.executeLeoCommand('init_vault', [`${amountU64}u64`]);
+    }
+
+    /**
+     * Verify balance is sufficient without revealing actual balance
+     * FEATURE 2: Balance Verification
+     * Note: Requires vault record from previous init_vault
+     */
+    async verifyBalance(vaultRecord, requiredAmount) {
+        const amountU64 = BigInt(Math.floor(parseFloat(requiredAmount) * 1e18));
+        return await this.executeLeoCommand('verify_balance', [vaultRecord, `${amountU64}u64`]);
+    }
+
+    /**
+     * Check compliance without revealing actual amount
+     * FEATURE 3: Compliance Without Disclosure
+     */
+    async checkCompliance(amount) {
+        const amountU64 = BigInt(Math.floor(parseFloat(amount) * 1e18));
+        return await this.executeLeoCommand('check_compliance', [`${amountU64}u64`]);
+    }
+
+    /**
+     * Create a fully private cross-chain transfer intent
+     * COMBINED: All privacy features in one transaction
+     */
+    async createPrivateIntent(vaultRecord, amount, chainId, recipientHash, nonce) {
+        const amountU64 = BigInt(Math.floor(parseFloat(amount) * 1e18));
+        const chainCode = this.getChainCode(chainId);
+        const nonceU64 = BigInt(nonce || Date.now());
+
+        return await this.executeLeoCommand('create_private_intent', [
+            vaultRecord,
+            `${amountU64}u64`,
+            `${chainCode}u8`,
+            recipientHash,
+            `${nonceU64}u64`
+        ]);
+    }
+
+    /**
+     * Simple public intent (backward compatible)
+     */
+    async createRequestTransfer(amount, chainId, recipientEVM) {
+        try {
+            logger.info('Creating transfer intent', { amount, chainId, recipientEVM });
+
+            const amountU64 = BigInt(Math.floor(parseFloat(amount) * 1e18));
+            const chainCode = this.getChainCode(chainId);
+            const destAddress = 'aleo1sqtc9nm359um4drfyc7e4vg25nm7kufvzjqhk3e85tq77qfrvyfqt0krfq';
+
+            const txId = await this.executeLeoCommand('create_intent', [
+                `${amountU64}u64`,
+                `${chainCode}u8`,
+                destAddress
+            ]);
+
+            logger.info('✅ Intent created via advance_privacy.aleo', {
+                txHash: txId,
+                explorer: `https://explorer.aleo.org/transaction/${txId}`
+            });
+
+            return txId;
+        } catch (error) {
+            logger.error('Failed to create intent', { error: error.message });
+            throw error;
+        }
+    }
+
     getChainCode(chainId) {
         const chainMap = {
             11155111: 1, // Sepolia
             80002: 2,    // Polygon Amoy
         };
-
         return chainMap[chainId] || 1;
     }
 }

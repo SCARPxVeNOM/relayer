@@ -31,7 +31,8 @@ RUN npm ci --only=production
 # Copy application code
 COPY . .
 
-# Copy Aleo program files
+# Copy Aleo program files (both for backward compatibility)
+COPY aleo/advance_privacy ./aleo/advance_privacy
 COPY aleo/privacy_barrier ./aleo/privacy_barrier
 
 # Set environment variables
