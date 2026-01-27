@@ -8,6 +8,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('AleoCliService');
@@ -23,10 +24,23 @@ class AleoCliService {
         this.endpoint = 'https://api.explorer.provable.com/v1';
         // Path to the Leo project directory
         this.projectDir = path.resolve(__dirname, '../../aleo/advance_privacy');
-        // Leo executable path - configurable for different environments
-        this.leoPath = process.env.LEO_PATH || (process.platform === 'win32'
-            ? 'C:\\Users\\aryan\\.cargo\\bin\\leo.exe'
-            : '/usr/local/bin/leo');
+
+        // Determine Leo path with multiple fallbacks
+        const possiblePaths = [
+            process.env.LEO_PATH,
+            '/usr/local/bin/leo',
+            '/root/.cargo/bin/leo',
+            process.platform === 'win32' ? 'C:\\Users\\aryan\\.cargo\\bin\\leo.exe' : null
+        ].filter(Boolean);
+
+        // Find the first existing Leo binary
+        this.leoPath = possiblePaths.find(p => {
+            try {
+                return fs.existsSync(p);
+            } catch {
+                return false;
+            }
+        }) || possiblePaths[0]; // Fallback to first option if none exist
 
         if (!this.privateKey) {
             throw new Error('ALEO_PRIVATE_KEY not configured');
@@ -35,7 +49,8 @@ class AleoCliService {
         logger.info('AleoCliService initialized (Advanced Privacy)', {
             programId: this.programId,
             projectDir: this.projectDir,
-            leoPath: this.leoPath
+            leoPath: this.leoPath,
+            leoExists: fs.existsSync(this.leoPath)
         });
     }
 
@@ -82,9 +97,21 @@ class AleoCliService {
             leo.on('close', (code) => {
                 clearTimeout(timeout);
 
+                logger.info('Leo process completed', {
+                    code,
+                    stdoutLength: stdout.length,
+                    stderrLength: stderr.length
+                });
+
                 if (code !== 0) {
-                    logger.error('Leo CLI error', { code, stderr: stderr.substring(0, 500) });
-                    reject(new Error(`Leo exited with code ${code}`));
+                    logger.error('Leo CLI error', {
+                        code,
+                        stderr: stderr.substring(0, 500),
+                        stdout: stdout.substring(0, 500),
+                        leoPath: this.leoPath,
+                        projectDir: this.projectDir
+                    });
+                    reject(new Error(`Leo exited with code ${code}: ${stderr.substring(0, 200)}`));
                     return;
                 }
 
@@ -108,11 +135,19 @@ class AleoCliService {
                     return;
                 }
 
+                logger.error('Could not parse transaction ID', {
+                    stdout: stdout.substring(0, 800)
+                });
                 reject(new Error('Could not parse transaction ID'));
             });
 
             leo.on('error', (err) => {
                 clearTimeout(timeout);
+                logger.error('Leo spawn error', {
+                    error: err.message,
+                    leoPath: this.leoPath,
+                    projectDir: this.projectDir
+                });
                 reject(new Error(`Failed to spawn Leo: ${err.message}`));
             });
         });
