@@ -9,6 +9,7 @@
  */
 
 import fetch from 'node-fetch';
+import crypto from 'crypto';
 import { createLogger } from '../utils/logger.js';
 import { evmToAleo } from '../utils/address-converter.js';
 
@@ -134,7 +135,7 @@ class AleoTransactionService {
      */
     generateTxHash(amount, chainId, recipient, timestamp) {
         const data = `${amount}-${chainId}-${recipient}-${timestamp}`;
-        const hash = require('crypto')
+        const hash = crypto
             .createHash('sha256')
             .update(data)
             .digest('hex')
