@@ -156,7 +156,7 @@ class AleoListener {
       }
 
       // Fallback: Check for simulated transactions (MVP mode)
-      const AleoTransactionService = (await import('../services/aleo.transaction.service.js')).default;
+      const AleoTransactionService = (await import('./services/aleo.transaction.service.js')).default;
       const simulatedTxs = AleoTransactionService.getPendingTransactions() || [];
 
       if (simulatedTxs.length > 0) {
@@ -473,7 +473,7 @@ class AleoListener {
       logger.info("📦 Extracted transfer intent", intent);
 
       // Clean up simulated transaction from global queue
-      const AleoTransactionService = (await import('../services/aleo.transaction.service.js')).default;
+      const AleoTransactionService = (await import('./services/aleo.transaction.service.js')).default;
       AleoTransactionService.clearProcessedTransaction(txId);
 
       if (this.callback) {
