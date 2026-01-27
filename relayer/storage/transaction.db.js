@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { createLogger } from '../utils/logger.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const logger = createLogger("TransactionDB");
 
@@ -16,6 +17,14 @@ const __dirname = path.dirname(__filename);
 class TransactionStorage {
   constructor() {
     const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/transactions.db');
+
+    // Create parent directory if it doesn't exist
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+      logger.info('Created database directory', { path: dbDir });
+    }
+
     this.db = new Database(dbPath);
     this.initialized = false;
   }
@@ -162,7 +171,7 @@ class TransactionStorage {
     `).all();
 
     const total = this.db.prepare('SELECT COUNT(*) as count FROM processed_transactions').get();
-    
+
     return {
       total: total.count,
       byStatus: stats.reduce((acc, row) => {
@@ -199,7 +208,7 @@ class TransactionStorage {
     }
 
     query += ' ORDER BY timestamp DESC LIMIT 1000';
-    
+
     const stmt = this.db.prepare(query);
     return stmt.all(...params);
   }
@@ -209,7 +218,7 @@ class TransactionStorage {
    */
   cleanup(daysToKeep = 30) {
     const cutoff = Date.now() - (daysToKeep * 24 * 60 * 60 * 1000);
-    
+
     const txStmt = this.db.prepare('DELETE FROM processed_transactions WHERE created_at < ?');
     const txDeleted = txStmt.run(cutoff).changes;
 
