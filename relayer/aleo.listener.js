@@ -308,10 +308,14 @@ class AleoListener {
               chainId = parseInt(match[1]);
             }
           }
-          // Check for address format (aleo1...)
-          if (input.startsWith('aleo1') && !recipient) {
-            // This might be the recipient, but we need to convert to EVM address
-            // For now, we'll need the actual decrypted value
+          // Check for EVM address format (0x...) - this is how we store it in simulation
+          if (input.startsWith('0x') && input.length === 42 && !recipient) {
+            recipient = input;
+          }
+          // Also check for Aleo address format (aleo1...)
+          else if (input.startsWith('aleo1') && !recipient) {
+            // This might be the recipient in Aleo format
+            // For now, we need the EVM address from conversion
           }
         }
       }
