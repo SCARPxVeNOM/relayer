@@ -37,9 +37,9 @@ program advance_privacy.aleo {
     // ═══════════════════════════════════════════════════════════════════════════
     
     // Initialize a private vault with hidden balance
-    transition init_vault(amount: u64) -> Vault {
+    transition init_vault(owner_addr: address, amount: u64) -> Vault {
         return Vault {
-            owner: self.caller,
+            owner: owner_addr,
             balance: amount,
         };
     }
@@ -99,7 +99,7 @@ program advance_privacy.aleo {
         
         // Create private intent with ALL hidden data
         let intent: Intent = Intent {
-            owner: self.caller,
+            owner: vault.owner,
             amount: amount,
             dest_chain: dest_chain,
             recipient_hash: recipient_hash,
