@@ -363,6 +363,17 @@ class AleoListener {
         return null;
       }
 
+      // Convert chain code back to EVM chain ID
+      // Chain codes: 1=Sepolia, 2=Amoy (from getChainCode() in aleo.transaction.service.js)
+      const chainIdMap = {
+        1: 11155111,  // Sepolia
+        2: 80002,     // Polygon Amoy
+        10: 1,        // Ethereum Mainnet
+        11: 137,      // Polygon Mainnet
+      };
+
+      const evmChainId = chainIdMap[chainId] || chainId;
+
       // Normalize recipient address (convert from Aleo format if needed)
       // For MVP, assume recipient is already in EVM format (0x...)
       const normalizedRecipient = recipient.startsWith('0x')
