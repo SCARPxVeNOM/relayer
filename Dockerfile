@@ -7,9 +7,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Download pre-built Leo binary (MUCH FASTER than compiling)
-# Get the latest release from GitHub
-RUN curl -L -o /tmp/leo.zip https://github.com/ProvableHQ/leo/releases/download/v2.5.0/leo-v2.5.0-x86_64-unknown-linux-gnu.zip \
+# Download pre-built Leo v3.4.0 binary (CORRECT URL)
+RUN curl -L -o /tmp/leo.zip https://github.com/ProvableHQ/leo/releases/download/v3.4.0/leo-v3.4.0-x86_64-unknown-linux-gnu.zip \
     && unzip /tmp/leo.zip -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/leo \
     && rm /tmp/leo.zip
