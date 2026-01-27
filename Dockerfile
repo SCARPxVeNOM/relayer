@@ -1,20 +1,18 @@
-# Use Node.js as base with Rust support
+# Use Node.js as base
 FROM node:22-bookworm
 
-# Install build dependencies for Rust and Leo
+# Install minimal dependencies
 RUN apt-get update && apt-get install -y \
     curl \
-    build-essential \
-    pkg-config \
-    libssl-dev \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Install Leo CLI
-RUN cargo install leo-lang
+# Download pre-built Leo binary (MUCH FASTER than compiling)
+# Get the latest release from GitHub
+RUN curl -L -o /tmp/leo.zip https://github.com/ProvableHQ/leo/releases/download/v2.5.0/leo-v2.5.0-x86_64-unknown-linux-gnu.zip \
+    && unzip /tmp/leo.zip -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/leo \
+    && rm /tmp/leo.zip
 
 # Verify Leo installation
 RUN leo --version
@@ -22,7 +20,7 @@ RUN leo --version
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first (for better caching)
 COPY package*.json ./
 
 # Install Node.js dependencies
@@ -31,20 +29,16 @@ RUN npm ci --only=production
 # Copy application code
 COPY . .
 
-# Copy Aleo program files (both for backward compatibility)
-COPY aleo/advance_privacy ./aleo/advance_privacy
-COPY aleo/privacy_barrier ./aleo/privacy_barrier
-
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV LEO_PATH=/root/.cargo/bin/leo
+ENV LEO_PATH=/usr/local/bin/leo
 
 # Expose port
 EXPOSE 3001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
 # Start the application

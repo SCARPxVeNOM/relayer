@@ -26,7 +26,7 @@ class AleoCliService {
         // Leo executable path - configurable for different environments
         this.leoPath = process.env.LEO_PATH || (process.platform === 'win32'
             ? 'C:\\Users\\aryan\\.cargo\\bin\\leo.exe'
-            : '/root/.cargo/bin/leo');
+            : '/usr/local/bin/leo');
 
         if (!this.privateKey) {
             throw new Error('ALEO_PRIVATE_KEY not configured');
