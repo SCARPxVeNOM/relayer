@@ -385,7 +385,7 @@ class AleoListener {
 
       return {
         requestId,
-        chainId: parseInt(chainId),
+        chainId: evmChainId,  // Use converted EVM chain ID, not chain code
         amount: normalizedAmount,
         recipient: normalizedRecipient,
       };
