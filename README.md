@@ -1,298 +1,343 @@
-# Multi-Chain Privacy Barrier — MVP
+# 🔐 Privacy Bridge - Cross-Chain Private Transfers
 
-🎯 **Complete MVP for private cross-chain transfers using Aleo**
+[![Aleo](https://img.shields.io/badge/Aleo-Testnet-blue)](https://explorer.aleo.org)
+[![Ethereum](https://img.shields.io/badge/Ethereum-Sepolia-purple)](https://sepolia.etherscan.io)
+[![Polygon](https://img.shields.io/badge/Polygon-Amoy-8247E5)](https://amoy.polygonscan.com)
+
+> **Private cross-chain bridge using Aleo's zero-knowledge cryptography.** Transfer assets from Aleo to EVM chains while keeping your transaction details hidden.
+
+![Hybrid Flow Diagram](docs/hybrid-flow-diagram.png)
+
+---
+
+## 🌟 Features
+
+| Feature | Description |
+|---------|-------------|
+| **🔒 Private Intents** | Your transfer amount, recipient, and chain are encrypted on Aleo |
+| **🦁 Leo Wallet Signing** | Sign transactions with your own wallet - keys never leave your device |
+| **⚡ Multi-Chain Support** | Bridge to Ethereum Sepolia and Polygon Amoy testnets |
+| **🤖 Automated Relayer** | Backend handles EVM execution - no gas needed from users |
+| **📊 Real-Time Telemetry** | Mission Control dashboard with live system status |
+
+---
 
 ## 🏗️ Architecture
 
 ```
-Frontend (optional)
-   ↓
-Aleo Testnet (PRIVATE) ← Amount, chain_id, destination are private
-   ↓
-Relayer (Node.js) ← Reads proofs, executes public chain transactions
-   ↓
-ETH Sepolia / Polygon Amoy ← Public chains cannot trace the user
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PRIVACY BRIDGE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐  │
+│  │   FRONTEND   │    │  LEO WALLET  │    │        ALEO TESTNET          │  │
+│  │  (Next.js)   │───▶│  (Browser)   │───▶│    advance_privacy.aleo      │  │
+│  └──────────────┘    └──────────────┘    └──────────────────────────────┘  │
+│         │                                              │                    │
+│         │ POST /api/intent/register                    │ Transaction        │
+│         ▼                                              ▼ confirmed          │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                       RAILWAY BACKEND                                 │  │
+│  │  ┌────────────┐  ┌───────────────┐  ┌────────────┐  ┌─────────────┐ │  │
+│  │  │ Intent API │  │ Batch Queue   │  │ ETH Exec   │  │ Polygon Exec│ │  │
+│  │  └────────────┘  └───────────────┘  └────────────┘  └─────────────┘ │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│         │                                              │                    │
+│         │                                              │ Send ETH           │
+│         ▼                                              ▼                    │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                         EVM CHAINS                                    │  │
+│  │        Sepolia (11155111)          │         Amoy (80002)            │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🔗 Hybrid Flow (Leo Wallet + Backend)
+
+The bridge uses a **hybrid approach** that combines decentralized signing with automated execution:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant L as Leo Wallet
+    participant A as Aleo Testnet
+    participant B as Railway Backend
+    participant S as Sepolia
+
+    U->>F: Fill form + submit
+    F->>L: Sign transaction
+    L->>U: Prompt approval
+    U->>L: Approve ✓
+    L->>A: Broadcast tx
+    A-->>L: txId (at1...)
+    L-->>F: txId
+    F->>B: POST /api/intent/register
+    Note right of B: {txId, chainId, amount, recipient}
+    B->>B: Queue for execution
+    B->>S: Send ETH to recipient
+    S-->>B: ETH txHash
+    B-->>F: {status: queued}
+```
+
+### Why Hybrid?
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Wallet-only** | Fully decentralized | User needs gas on every chain |
+| **Backend-only** | Simple, no gas needed | Centralized key management |
+| **Hybrid ✓** | User controls Aleo key + No gas needed | Best of both worlds |
+
+---
+
+## 🦁 advance_privacy.aleo Program
+
+The core Aleo program provides real privacy features using zero-knowledge proofs:
+
+### Records (Private State)
+
+```leo
+// Private Vault - stores user's hidden balance
+record Vault {
+    owner: address,
+    balance: u64,      // ENCRYPTED - only owner can see
+}
+
+// Private Intent - cross-chain transfer with hidden details
+record Intent {
+    owner: address,
+    amount: u64,           // HIDDEN from observers
+    dest_chain: u8,        // HIDDEN chain destination
+    recipient_hash: field, // HASHED recipient address
+    nonce: u64,
+    is_compliant: bool,
+}
+```
+
+### Key Functions
+
+| Function | Purpose | Privacy Level |
+|----------|---------|---------------|
+| `init_vault` | Create private balance vault | 🔒 Private |
+| `verify_balance` | Prove sufficient funds without revealing balance | 🔒 ZK Proof |
+| `check_compliance` | Verify AML compliance without disclosure | 🔒 ZK Proof |
+| `create_private_intent` | Full private cross-chain intent | 🔒 Private |
+| `create_intent` | Simple intent (hybrid flow) | 🌐 Public |
+
+### Privacy Features
+
+1. **Hidden Amounts** - Transfer amounts encrypted in records
+2. **Hidden Recipients** - Recipient hashed, only relayer knows mapping
+3. **Balance Verification** - Prove you have funds without revealing how much
+4. **Compliance Checks** - Prove AML compliance without disclosing amounts
+
+---
 
 ## 📁 Project Structure
 
 ```
-privacy-box-mvp/
-├── aleo/
-│   └── privacy_box/
-│       ├── program.json
-│       └── main.leo          # Leo program with private transfers
-├── relayer/
-│   ├── index.js              # Main relayer logic
-│   ├── eth.js                # Ethereum Sepolia handler
-│   ├── polygon.js            # Polygon Amoy handler
-│   └── config.js             # Chain configuration
-├── contracts/
-│   └── Receiver.sol          # Simple receiver contract
-├── package.json
-├── .env.example
-└── README.md
+envelop/
+├── frontend/                  # Next.js 16 frontend
+│   ├── app/                   # App router pages
+│   │   ├── page.tsx           # Landing - wallet connect
+│   │   ├── mission/           # Telemetry dashboard
+│   │   └── protocol/          # Bridge interface
+│   ├── src/
+│   │   ├── components/        # React components
+│   │   │   ├── TransferForm.tsx     # Main bridge form
+│   │   │   └── sections/            # Page sections
+│   │   ├── services/          # API clients
+│   │   ├── stores/            # Zustand state
+│   │   └── providers/         # Wallet providers
+│   └── .env.local             # Environment config
+│
+├── relayer/                   # Node.js backend
+│   ├── api/                   # HTTP endpoints
+│   │   ├── health.js          # Server + routes
+│   │   ├── intent.js          # Intent creation/registration
+│   │   └── telemetry.js       # Metrics endpoints
+│   ├── services/              # Core services
+│   │   ├── aleo.cli.service.js    # Leo CLI integration
+│   │   └── aleo.transaction.service.js
+│   ├── executor.eth.js        # Sepolia executor
+│   ├── executor.polygon.js    # Amoy executor
+│   ├── batch.queue.js         # Transaction batching
+│   └── index.js               # Main entry
+│
+├── aleo/                      # Aleo programs
+│   └── advance_privacy/       # Main privacy program
+│       └── src/main.leo
+│
+└── docs/                      # Documentation
 ```
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-1. **Install Leo CLI**
-   ```bash
-   cargo install leo-lang
-   ```
+- Node.js 18+
+- [Leo Wallet](https://chromewebstore.google.com/detail/leo-wallet/nebnhfamliijlghikdgcigoebonmoibm) browser extension
+- Aleo testnet credits (get from [faucet](https://faucet.aleo.org))
 
-2. **Install Node.js** (v18+)
-   ```bash
-   node --version
-   ```
-
-3. **Get Testnet Tokens**
-   - **Ethereum Sepolia**: [sepoliafaucet.com](https://sepoliafaucet.com)
-   - **Polygon Amoy**: [faucet.polygon.technology](https://faucet.polygon.technology)
-
-### Setup
-
-1. **Clone and install dependencies**
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   
-   # Generate a new relayer private key (recommended)
-   npm run generate:key
-   
-   # OR manually edit .env with your relayer private key and RPC URLs
-   # See docs/RELAYER_KEY_GUIDE.md for details
-   ```
-
-3. **Deploy Aleo Program**
-   ```bash
-   cd aleo/privacy_box
-   leo deploy
-   ```
-
-4. **Deploy Solidity Contracts** (optional, for testing)
-   ```bash
-   # Deploy Receiver.sol to Sepolia and Amoy
-   # Use Remix, Hardhat, or Foundry
-   ```
-
-5. **Run Relayer**
-   ```bash
-   npm start
-   # or
-   node relayer/index.js
-   ```
-
-## 🔐 How It Works
-
-### 1. Aleo Program (`main.leo`)
-
-The Leo program provides:
-- **Vault Record**: Stores user's private balance
-- **request_transfer**: Private transition that hides:
-  - Transfer amount
-  - Destination chain (chain_id)
-  - Destination address
-
-**What's Private:**
-- ✅ `amount` - Transfer amount
-- ✅ `chain_id` - Target chain
-- ✅ `dest` - Destination address
-
-**What's Public:**
-- ✅ Vault owner
-- ✅ Vault balance (after update)
-
-### 2. Relayer (`relayer/index.js`)
-
-The relayer:
-1. Listens for Aleo proofs/events (simulated in MVP)
-2. Extracts private data (amount, chain_id, destination)
-3. Executes transaction on appropriate public chain
-4. Public chains only see relayer address, not the user
-
-### 3. Public Chain Contracts
-
-Simple receiver contracts on:
-- **Ethereum Sepolia**: Receives ETH
-- **Polygon Amoy**: Receives MATIC
-
-## 🧪 Testing
-
-### Test Aleo Program
+### 1. Clone & Install
 
 ```bash
-cd aleo/privacy_box
+git clone https://github.com/SCARPxVeNOM/relayer.git
+cd relayer
 
-# Initialize vault
-leo run init aleo1xxx... 100u64
-
-# Request transfer (private)
-leo run request_transfer "{
-  owner: aleo1xxx...,
-  balance: 100u64
-}" 10u64 1u8 aleo1yyy...
+# Install dependencies
+npm install
+cd frontend && npm install
 ```
 
-### Test Relayer
+### 2. Configure Environment
 
 ```bash
-# Set simulation variables in .env
-SIMULATED_CHAIN_ID=11155111  # ETH Sepolia
-SIMULATED_RECIPIENT=0x...
-SIMULATED_AMOUNT=0.01
+# Frontend
+cp frontend/.env.example frontend/.env.local
 
-# Run relayer
+# Backend (for local development)
+cp .env.example .env
+```
+
+Required variables:
+```env
+# Frontend
+NEXT_PUBLIC_RELAYER_API_URL=https://privacy-bridge-relayer-production-faeb.up.railway.app
+
+# Backend
+RELAYER_PK=your_eth_private_key
+ALCHEMY_ETH_RPC=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+```
+
+### 3. Run Locally
+
+```bash
+# Terminal 1: Backend
 npm start
+
+# Terminal 2: Frontend
+cd frontend && npm run dev
 ```
 
-## 🔒 Privacy Guarantees
-
-| Feature | Status |
-|---------|--------|
-| Aleo privacy | ✅ Amount, chain, destination hidden |
-| Multi-chain | ✅ ETH Sepolia + Polygon Amoy |
-| Relayer abstraction | ✅ User identity protected |
-| Untraceability | ✅ Public chains can't trace user |
-| Testnet ready | ✅ Full testnet support |
-
-## 📝 Environment Variables
-
-```bash
-# Required
-RELAYER_PK=your_private_key          # Primary relayer private key for signing public chain txs
-SEPOLIA_RPC=https://...              # Ethereum Sepolia RPC endpoint
-POLYGON_AMOY_RPC=https://...         # Polygon Amoy RPC endpoint
-
-# Aleo Integration (Required for real Aleo monitoring)
-ALEO_VIEW_KEY=your_view_key          # Aleo view key for decrypting private inputs
-ALEO_PROGRAM_ID=privacy_box_mvp.aleo # Aleo program ID (default: privacy_box_mvp.aleo)
-ALEO_RPC=https://api.explorer.provable.com/v2/testnet  # Aleo API v2 endpoint (default)
-ALEO_POLL_INTERVAL=10000             # Polling interval in ms (default: 10000)
-
-# Multiple Wallets (Optional - for parallel execution)
-RELAYER_PK_2=your_second_key         # Additional relayer key for ETH
-RELAYER_PK_3=your_third_key          # Additional relayer key for ETH
-POLYGON_RELAYER_PK=your_polygon_key  # Polygon-specific relayer key (falls back to RELAYER_PK)
-POLYGON_RELAYER_PK_2=your_polygon_key_2  # Additional Polygon relayer key
-
-# Batching Configuration (Optional)
-MAX_BATCH_SIZE=5                     # Maximum batch size before execution (default: 5)
-MAX_BATCH_WAIT_TIME=10000            # Maximum wait time in ms before execution (default: 10000)
-
-# Optional (for simulation mode - deprecated, use real Aleo integration)
-ENABLE_SIMULATION=false              # Set to true to use simulation mode
-SIMULATED_CHAIN_ID=11155111          # Chain ID to simulate
-SIMULATED_RECIPIENT=0x...            # Recipient address
-SIMULATED_AMOUNT=0.01                # Amount to send
-```
-
-## ✨ New Features (Implemented)
-
-1. **Real Aleo Integration** ✅
-   - Polls Aleo testnet blocks for `request_transfer` executions
-   - Decrypts private inputs using view key
-   - Extracts transfer intent (amount, chain_id, destination)
-
-2. **Batching System** ✅
-   - In-memory queue grouped by chainId
-   - Batches based on max size (default: 5) or max wait time (default: 10s)
-   - Non-blocking batch execution
-
-3. **Parallel Execution** ✅
-   - Multiple relayer wallets per chain
-   - Independent nonce management per wallet
-   - Parallel batch execution with Promise.allSettled
-   - Fault isolation (one wallet failure doesn't block others)
-
-## 🛠️ Architecture
-
-```
-Aleo Testnet (privacy_box_mvp.aleo)
-    ↓
-aleo.listener.js (polls blocks, decrypts with view key)
-    ↓
-batch.queue.js (groups by chainId, batches by size/time)
-    ↓
-executor.eth.js / executor.polygon.js (parallel execution)
-    ↓
-Ethereum Sepolia / Polygon Amoy
-```
-
-## 🛠️ Next Steps (Post-MVP)
-
-1. **Enhanced Aleo SDK Integration**
-   - Full SDK-based decryption (@provablehq/sdk)
-   - Improved view key handling
-
-2. **Additional Features**
-   - Frontend UI
-   - Advanced wallet selection (balance-based)
-   - Rate limiting for Aleo API
-
-3. **Production Hardening**
-   - Monitoring & alerts
-   - Gas optimization
-   - Security audits
-   - Database persistence for processed transactions
-
-## 🚀 Render Deployment
-
-The relayer is deployed on Render at: **https://relayer-43bm.onrender.com**
-
-### Required Environment Variables on Render
-
-Set these in your Render dashboard (Environment → Environment Variables):
-
-**Required:**
-- `RELAYER_PK` - Your relayer private key (starts with `0x`)
-- `ALEO_VIEW_KEY` - Your Aleo view key (if you have one)
-
-**Optional (defaults provided):**
-- `ALEO_RPC` - Default: `https://api.explorer.provable.com/v2/testnet`
-- `ALEO_PROGRAM_ID` - Default: `privacy_box_mvp.aleo`
-- `SEPOLIA_RPC` - Default: `https://rpc.sepolia.org`
-- `POLYGON_AMOY_RPC` - Default: `https://rpc-amoy.polygon.technology`
-- `HEALTH_PORT` - Default: `3001`
-
-### Frontend Configuration
-
-If deploying the frontend, set:
-- `NEXT_PUBLIC_RELAYER_API_URL=https://relayer-43bm.onrender.com`
-
-### Health Check
-
-Check service status:
-- Health: `https://relayer-43bm.onrender.com/health`
-- Metrics: `https://relayer-43bm.onrender.com/metrics`
-- Telemetry: `https://relayer-43bm.onrender.com/api/telemetry`
-
-## 📚 Resources
-
-- **Leo Language**: [leo-lang.org](https://leo-lang.org)
-- **Leo GitHub**: [github.com/ProvableHQ/leo](https://github.com/ProvableHQ/leo)
-- **Aleo Explorer**: [explorer.aleo.org](https://explorer.aleo.org)
-- **Ethereum Sepolia**: [sepolia.etherscan.io](https://sepolia.etherscan.io)
-- **Polygon Amoy**: [amoy.polygonscan.com](https://amoy.polygonscan.com)
-
-## ⚠️ Security Notes
-
-- **Never commit `.env`** - Contains private keys
-- **Use testnet only** - This is an MVP
-- **Relayer key security** - Store securely, use hardware wallet for production
-- **Aleo keys** - Keep private keys safe
-
-## 📄 License
-
-MIT
+Open http://localhost:3000
 
 ---
 
-**🎉 MVP Complete!** This demonstrates private cross-chain transfers where public chains cannot trace the original user.
+## 🌐 API Endpoints
 
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/health` | GET | Health check |
+| `/api/telemetry` | GET | System metrics |
+| `/api/latency` | GET | Network latency |
+| `/api/session/init` | POST | Initialize session |
+| `/api/intent` | POST | Create intent (backend signs) |
+| `/api/intent/register` | POST | Register Leo Wallet intent |
+| `/api/version` | GET | Version info |
+
+### Register Intent (Hybrid Flow)
+
+```bash
+curl -X POST https://your-backend/api/intent/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txId": "at1abc123...",
+    "chainId": 1,
+    "amount": "0.01",
+    "recipient": "0xYourEVMAddress"
+  }'
+```
+
+---
+
+## 🔒 Security Model
+
+### What's Private
+
+| Data | Visibility |
+|------|------------|
+| Your Aleo balance | 🔒 Only you (encrypted record) |
+| Transfer amount | 🔒 Hidden in ZK proof |
+| Intent details | 🔒 Encrypted on Aleo |
+| Your identity | 🔒 Aleo address ≠ real identity |
+
+### What's Public
+
+| Data | Visibility | Mitigation |
+|------|------------|------------|
+| Relayer → Recipient ETH transfer | 🌐 On-chain | Batching, delays |
+| Backend logs | ⚠️ Relayer knows mapping | Run your own relayer |
+
+### Trust Assumptions
+
+1. **You trust your Leo Wallet** - Keys never leave it
+2. **Relayer can see the mapping** - Aleo tx → EVM recipient
+3. **EVM is transparent** - Final ETH transfer is public
+
+---
+
+## 🛠️ Deployment
+
+### Frontend (Vercel)
+
+```bash
+cd frontend
+vercel deploy --prod
+```
+
+### Backend (Railway)
+
+1. Connect GitHub repo to Railway
+2. Set environment variables
+3. Deploy from `main` branch
+
+---
+
+## 📊 Monitoring
+
+### Railway Logs
+
+View real-time logs at: https://railway.app/project/YOUR_PROJECT
+
+### Telemetry Endpoints
+
+- `/api/telemetry` - Full system metrics
+- `/api/heartbeat` - Quick health check
+- `/api/aleo/status` - Aleo network status
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push branch: `git push origin feature/amazing`
+5. Open Pull Request
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## 🔗 Links
+
+- **Frontend**: [Live Demo](https://your-frontend.vercel.app)
+- **Backend API**: https://privacy-bridge-relayer-production-faeb.up.railway.app
+- **Aleo Explorer**: https://testnet.explorer.provable.com
+- **Leo Wallet**: [Chrome Extension](https://chromewebstore.google.com/detail/leo-wallet/nebnhfamliijlghikdgcigoebonmoibm)
+
+---
+
+<p align="center">
+  Built with 🔐 privacy in mind using <a href="https://aleo.org">Aleo</a> + <a href="https://ethereum.org">Ethereum</a>
+</p>
