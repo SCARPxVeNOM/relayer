@@ -73,7 +73,8 @@ class AleoCliService {
                 '--save', txOutputDir,
                 '--network', this.network,
                 '--endpoint', this.endpoint,
-                '--consensus-version', this.consensusVersion
+                '--consensus-version', this.consensusVersion,
+                '--priority-fees', '10000' // 10000 microcredits = 0.00001 credits priority fee
             ];
 
             logger.info(`Executing ${functionName}...`, { args: fullArgs.slice(0, 5) });
