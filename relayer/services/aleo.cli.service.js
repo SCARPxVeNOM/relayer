@@ -71,7 +71,13 @@ class AleoCliService {
 
             const leo = spawn(this.leoPath, fullArgs, {
                 cwd: this.projectDir,
-                shell: true
+                shell: true,
+                env: {
+                    ...process.env,
+                    PRIVATE_KEY: this.privateKey,
+                    NETWORK: this.network,
+                    ENDPOINT: this.endpoint
+                }
             });
 
             let stdout = '';
