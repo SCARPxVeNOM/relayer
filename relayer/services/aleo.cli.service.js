@@ -113,7 +113,12 @@ class AleoCliService {
                     stderrLength: stderr.length
                 });
 
-                if (code !== 0) {
+                // Exit code 200 means broadcast failed but transaction was built
+                const broadcastFailed = code === 200 && stdout.includes('Failed to broadcast');
+                if (broadcastFailed) {
+                    logger.warn('Leo broadcast failed but transaction was built, continuing...');
+                }
+                if (code !== 0 && !broadcastFailed) {
                     logger.error('Leo CLI error', {
                         code,
                         stderr: stderr.substring(0, 500),

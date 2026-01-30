@@ -15,15 +15,15 @@ class AleoTransactionService {
         try {
             // Check if we should use real network
             if (USE_REAL_NETWORK) {
-                logger.info('🚀 Using REAL Aleo network mode via Provable SDK');
+                logger.info('🚀 Using REAL Aleo network mode via Leo CLI');
                 try {
-                    // Use SDK instead of Leo CLI for reliable broadcasting
-                    const AleoSDKService = (await import('./aleo.sdk.service.js')).default;
-                    const sdkService = new AleoSDKService();
-                    return await sdkService.createRequestTransfer(amount, chainId, recipientEVM);
-                } catch (sdkError) {
-                    logger.error('SDK failed, falling back to simulation', { error: sdkError.message, stack: sdkError.stack });
-                    // Fall back to simulation if SDK fails
+                    // Use Leo CLI for reliable proof building (now accepts code 200 for broadcast failures)
+                    const AleoCliService = (await import('./aleo.cli.service.js')).default;
+                    const cliService = new AleoCliService();
+                    return await cliService.createRequestTransfer(amount, chainId, recipientEVM);
+                } catch (cliError) {
+                    logger.error('Leo CLI failed, falling back to simulation', { error: cliError.message, stack: cliError.stack });
+                    // Fall back to simulation if CLI fails
                     return await this.simulateTransaction(amount, chainId, recipientEVM);
                 }
             }
