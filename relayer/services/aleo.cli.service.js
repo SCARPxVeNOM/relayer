@@ -21,8 +21,8 @@ class AleoCliService {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = 'advance_privacy.aleo'; // New advanced privacy program!
         this.network = 'testnet';
-        // Use Provable API v2 testnet endpoint (per docs.explorer.provable.com)
-        this.endpoint = process.env.ALEO_ENDPOINT || 'https://api.provable.com/v2/testnet';
+        // Use Provable Explorer API v1 with testnet network path
+        this.endpoint = process.env.ALEO_ENDPOINT || 'https://api.explorer.provable.com/v1/testnet';
         // Consensus version for Aleo testnet (V12 as of late 2025)
         this.consensusVersion = process.env.ALEO_CONSENSUS_VERSION || '12';
         // Path to the Leo project directory
