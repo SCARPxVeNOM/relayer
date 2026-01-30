@@ -21,7 +21,8 @@ class AleoSDKService {
     constructor() {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = 'advance_privacy.aleo'; // Updated to advanced privacy program!
-        this.networkUrl = 'https://api.explorer.provable.com/v1/testnet';
+        // Per SDK docs: use /v1 without /testnet, SDK handles network routing
+        this.networkUrl = 'https://api.explorer.provable.com/v1';
 
         if (!this.privateKey) {
             throw new Error('ALEO_PRIVATE_KEY not configured');
@@ -77,19 +78,14 @@ class AleoSDKService {
             // Step 5: Execute
             const fee = 500000; // 0.5 Aleo credits
 
-            const txId = await programManager.execute(
-                this.programId,
-                'create_intent',
-                fee,
-                false, // public fee
-                inputs,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                privateKeyObject
-            );
+            const txId = await programManager.execute({
+                programName: this.programId,
+                functionName: 'create_intent',
+                fee: fee,
+                privateFee: false,
+                inputs: inputs,
+                privateKey: privateKeyObject
+            });
 
             logger.info('Transaction broadcast successful!', {
                 txHash: txId,
