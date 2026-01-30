@@ -100,9 +100,15 @@ export async function registerIntent(req, res) {
       return;
     }
 
-    // Validate Aleo transaction ID format (starts with 'at1')
-    if (!txId.startsWith('at1')) {
-      sendJson(res, 400, { error: 'Invalid Aleo transaction ID format' });
+    // Validate transaction ID format
+    // Leo Wallet can return either:
+    // - On-chain Aleo tx ID: starts with 'at1'
+    // - Wallet internal tracking ID: UUID format (e.g., '28bd5c10-1d0e-4afb-8518-9f3b81504d02')
+    const isAleoTxId = txId.startsWith('at1');
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(txId);
+
+    if (!isAleoTxId && !isUUID) {
+      sendJson(res, 400, { error: 'Invalid transaction ID format. Expected Aleo tx ID (at1...) or UUID' });
       return;
     }
 
