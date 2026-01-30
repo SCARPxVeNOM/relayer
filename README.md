@@ -6,9 +6,6 @@
 
 > **Private cross-chain bridge using Aleo's zero-knowledge cryptography.** Transfer assets from Aleo to EVM chains while keeping your transaction details hidden.
 
-![Hybrid Flow Diagram](docs/hybrid-flow-diagram.png)
-
----
 
 ## 🌟 Features
 
