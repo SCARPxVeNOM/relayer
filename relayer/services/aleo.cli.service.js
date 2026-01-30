@@ -9,6 +9,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('AleoCliService');
@@ -154,7 +155,6 @@ class AleoCliService {
 
                 // If broadcast failed but execution succeeded, generate a local reference hash
                 if (broadcastFailed && stdout.includes('Execution Summary')) {
-                    const crypto = require('crypto');
                     const localHash = 'at1' + crypto
                         .createHash('sha256')
                         .update(stdout.substring(0, 2000))
