@@ -171,9 +171,9 @@ class AleoCliService {
                             logger.info('Transaction JSON size:', { size: txJson.length, preview: txJson.substring(0, 200) });
 
                             import('@provablehq/sdk').then(({ AleoNetworkClient }) => {
-                                // Use /v1/testnet endpoint which is the official broadcast path
-                                const networkClient = new AleoNetworkClient('https://api.explorer.provable.com/v1/testnet');
-                                logger.info('Broadcasting via SDK to v1/testnet...', { txPath });
+                                // Use /v1 only - SDK internally adds /testnet when broadcasting
+                                const networkClient = new AleoNetworkClient('https://api.explorer.provable.com/v1');
+                                logger.info('Broadcasting via SDK to /v1...', { txPath });
                                 return networkClient.submitTransaction(txJson);
                             }).then(txId => {
                                 logger.info('✅ Transaction broadcast via SDK!', {
