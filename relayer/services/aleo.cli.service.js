@@ -21,8 +21,8 @@ class AleoCliService {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = 'advance_privacy.aleo'; // New advanced privacy program!
         this.network = 'testnet';
-        // Use AleoRPC testnet beta endpoint - more reliable for broadcasting
-        this.endpoint = process.env.ALEO_ENDPOINT || 'https://testnetbeta.aleorpc.com';
+        // Use official Aleo testnet API endpoint
+        this.endpoint = process.env.ALEO_ENDPOINT || 'https://api.explorer.aleo.org/v1/testnet';
         // Consensus version for Aleo testnet (V12 as of late 2025)
         this.consensusVersion = process.env.ALEO_CONSENSUS_VERSION || '12';
         // Path to the Leo project directory
