@@ -20,7 +20,7 @@ const logger = createLogger('AleoSDKService');
 class AleoSDKService {
     constructor() {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
-        this.programId = 'privacy_barrier.aleo'; // Newly deployed!
+        this.programId = 'advance_privacy.aleo'; // Updated to advanced privacy program!
         this.networkUrl = 'https://api.explorer.provable.com/v1';
 
         if (!this.privateKey) {
