@@ -84,7 +84,10 @@ class AleoSDKService {
                 fee: fee,
                 privateFee: false,
                 inputs: inputs,
-                privateKey: privateKeyObject
+                privateKey: privateKeyObject,
+                keySearchParams: {
+                    cacheKey: `${this.programId}/create_intent`
+                }
             });
 
             logger.info('Transaction broadcast successful!', {
