@@ -167,26 +167,41 @@ class AleoCliService {
                             const txPath = path.join(txOutputDir, txFiles[txFiles.length - 1]);
                             const txJson = fs.readFileSync(txPath, 'utf8');
 
-                            // Use SDK to broadcast (using Promise chain to avoid async callback issue)
-                            logger.info('Transaction JSON size:', { size: txJson.length, preview: txJson.substring(0, 200) });
+                            // Use direct fetch to see actual network response
+                            const broadcastUrl = 'https://api.explorer.provable.com/v1/testnet/transaction/broadcast';
+                            logger.info('Broadcasting via direct fetch...', { broadcastUrl });
 
-                            import('@provablehq/sdk').then(({ AleoNetworkClient }) => {
-                                // Use /v1 only - SDK internally adds /testnet when broadcasting
-                                const networkClient = new AleoNetworkClient('https://api.explorer.provable.com/v1');
-                                logger.info('Broadcasting via SDK to /v1...', { txPath });
-                                return networkClient.submitTransaction(txJson);
-                            }).then(txId => {
-                                logger.info('✅ Transaction broadcast via SDK!', {
-                                    txId,
-                                    txIdType: typeof txId,
-                                    note: 'Check explorer in 30-60 seconds for confirmation'
+                            fetch(broadcastUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Aleo-SDK-Version': '0.7.4'
+                                },
+                                body: txJson
+                            }).then(async response => {
+                                const text = await response.text();
+                                logger.info('Broadcast response:', {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    body: text.substring(0, 500)
                                 });
-                                resolve(txId);
-                            }).catch(sdkError => {
-                                logger.warn('SDK broadcast fallback failed', {
-                                    error: sdkError.message,
-                                    stack: sdkError.stack,
-                                    response: sdkError.response?.data || 'no response data'
+                                if (response.ok) {
+                                    // Parse and return the response
+                                    try {
+                                        const result = JSON.parse(text);
+                                        logger.info('✅ Transaction broadcast success!', { result });
+                                        resolve(result);
+                                    } catch {
+                                        // Response is just the tx ID as string
+                                        resolve(text.replace(/"/g, ''));
+                                    }
+                                } else {
+                                    throw new Error(`Broadcast failed: ${response.status} ${text}`);
+                                }
+                            }).catch(fetchError => {
+                                logger.warn('Direct fetch broadcast failed', {
+                                    error: fetchError.message,
+                                    stack: fetchError.stack
                                 });
                                 // Fallback to local hash
                                 const localHash = 'at1' + crypto
