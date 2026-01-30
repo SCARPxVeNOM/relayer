@@ -168,15 +168,21 @@ class AleoCliService {
                             const txJson = fs.readFileSync(txPath, 'utf8');
 
                             // Use SDK to broadcast (using Promise chain to avoid async callback issue)
+                            logger.info('Transaction JSON size:', { size: txJson.length, preview: txJson.substring(0, 200) });
+
                             import('@provablehq/sdk').then(({ AleoNetworkClient }) => {
                                 const networkClient = new AleoNetworkClient('https://api.explorer.provable.com/v1');
                                 logger.info('Broadcasting via SDK...', { txPath });
                                 return networkClient.submitTransaction(txJson);
                             }).then(txId => {
-                                logger.info('✅ Transaction broadcast via SDK!', { txId });
+                                logger.info('✅ Transaction broadcast via SDK!', { txId, txIdType: typeof txId });
                                 resolve(txId);
                             }).catch(sdkError => {
-                                logger.warn('SDK broadcast fallback failed', { error: sdkError.message });
+                                logger.warn('SDK broadcast fallback failed', {
+                                    error: sdkError.message,
+                                    stack: sdkError.stack,
+                                    response: sdkError.response?.data || 'no response data'
+                                });
                                 // Fallback to local hash
                                 const localHash = 'at1' + crypto
                                     .createHash('sha256')
