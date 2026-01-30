@@ -21,7 +21,7 @@ class AleoCliService {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = 'advance_privacy.aleo'; // New advanced privacy program!
         this.network = 'testnet';
-        this.endpoint = 'https://api.explorer.provable.com/v1';
+        this.endpoint = process.env.ALEO_ENDPOINT || 'https://api.explorer.provable.com/v1/testnet';
         // Path to the Leo project directory
         this.projectDir = path.resolve(__dirname, '../../aleo/advance_privacy');
 
