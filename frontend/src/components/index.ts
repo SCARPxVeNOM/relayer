@@ -1,3 +1,4 @@
+// Component exports
 export { WalletButton } from './WalletButton';
 export type { WalletButtonProps } from './WalletButton';
 
@@ -16,10 +17,9 @@ export { LoadingSpinner } from './LoadingSpinner';
 export type { LoadingSpinnerProps } from './LoadingSpinner';
 
 export { TransferForm } from './TransferForm';
-export type { TransferFormProps } from './TransferForm';
 
 export { TransactionHistory } from './TransactionHistory';
-export type { TransactionHistoryProps } from './TransactionHistory';
+
 export { BalanceRefresh } from './BalanceRefresh';
 export type { BalanceRefreshProps } from './BalanceRefresh';
 

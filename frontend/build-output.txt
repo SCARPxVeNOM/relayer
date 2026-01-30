@@ -1,0 +1,106 @@
+﻿node.exe : ΓÜá 
+Warning: Next.js 
+inferred your 
+workspace root, but 
+it may not be 
+correct.
+At C:\Program Files\n
+odejs\npx.ps1:29 
+char:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (ΓÜá War   
+ ning: Ne...not b    
+e correct.:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+ We detected 
+multiple lockfiles 
+and selected the 
+directory of C:\Users
+\aryan\Desktop\envelo
+p - Copy\package-lock
+.json as the root 
+directory.
+ To silence this 
+warning, set 
+`turbopack.root` in 
+your Next.js config, 
+or consider removing 
+one of the lockfiles 
+if it's not needed.
+   See https://nextjs
+.org/docs/app/api-ref
+erence/config/next-co
+nfig-js/turbopack#roo
+t-directory for more 
+information.
+ Detected additional 
+lockfiles: 
+   * C:\Users\aryan\D
+esktop\envelop - Copy
+\frontend\package-loc
+k.json
+
+Γû▓ Next.js 16.1.4 (Turbopack)
+- Environments: .env.local, .env
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 8.5s
+  Running TypeScript ...
+Failed to compile.
+
+./src/components/inde
+x.ts:21:15
+Type error: '"./Trans
+actionHistory"' has 
+no exported member 
+named 'TransactionHis
+toryProps'. Did you 
+mean 
+'TransactionHistory'?
+
+[0m [90m 19 |[39m
+ [90m 20 |[39m 
+[36mexport[39m { [
+33mTransactionHistory
+[39m } 
+[36mfrom[39m [32m'
+./TransactionHistory'
+[39m[33m;[39m
+[31m[1m>[22m[39m
+[90m 21 |[39m 
+[36mexport[39m 
+type { [33mTransacti
+onHistoryProps[39m 
+} [36mfrom[39m [32
+m'./TransactionHistor
+y'[39m[33m;[39m
+ [90m    |[39m     
+          
+[31m[1m^[22m[39m
+ [90m 22 |[39m
+ [90m 23 |[39m 
+[36mexport[39m { [
+33mBalanceRefresh[39
+m } [36mfrom[39m [
+32m'./BalanceRefresh'
+[39m[33m;[39m
+ [90m 24 |[39m 
+[36mexport[39m 
+type { [33mBalanceRe
+freshProps[39m } 
+[36mfrom[39m [32m'
+./BalanceRefresh'[39
+m[33m;[39m[0m
+Next.js build worker 
+exited with code: 1 
+and signal: null

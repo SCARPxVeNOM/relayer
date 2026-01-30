@@ -87,14 +87,14 @@ export class LeoWalletConnector {
   async disconnect(): Promise<void> {
     this.removeEventListeners();
     this.accountChangeCallbacks = [];
-    
+
     // Clear all polling intervals
     this.pollingIntervals.forEach(interval => clearInterval(interval));
     this.pollingIntervals.clear();
 
-    if (this.isInstalled() && window.leoWallet!.disconnect) {
+    if (this.isInstalled() && window.leoWallet?.disconnect) {
       try {
-        await window.leoWallet!.disconnect();
+        await window.leoWallet.disconnect();
       } catch (error) {
         console.error('Failed to disconnect from Leo Wallet:', error);
       }
@@ -128,7 +128,7 @@ export class LeoWalletConnector {
 
     try {
       const txId = await window.leoWallet!.requestTransaction(params);
-      
+
       if (!txId) {
         throw new Error('Transaction failed: No transaction ID returned');
       }
@@ -154,7 +154,7 @@ export class LeoWalletConnector {
   async getTransactionStatus(txId: string): Promise<TransactionStatusDetail> {
     try {
       const response = await fetch(`${config.relayer.apiUrl}/api/transaction/${txId}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           // Transaction not yet processed by relayer
@@ -167,7 +167,7 @@ export class LeoWalletConnector {
       }
 
       const data = await response.json();
-      
+
       return {
         status: data.status || 'pending',
         aleoTxId: txId,
