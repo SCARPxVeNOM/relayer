@@ -21,9 +21,9 @@ class AleoCliService {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = 'advance_privacy.aleo'; // New advanced privacy program!
         this.network = 'testnet';
-        // Use snarkOS node endpoint for broadcasting (NOT the API explorer!)
-        // Leo CLI requires a snarkOS node endpoint for the --broadcast flag
-        this.endpoint = process.env.ALEO_ENDPOINT || 'https://node.testnet.aleo.network/testnet';
+        // Use Provable API v2 endpoint - this is confirmed working for --broadcast
+        // Example: leo deploy --network testnet --endpoint https://api.explorer.provable.com/v2 --broadcast
+        this.endpoint = process.env.ALEO_ENDPOINT || 'https://api.explorer.provable.com/v2';
         // Consensus version for Aleo testnet (V12 as of late 2025)
         this.consensusVersion = process.env.ALEO_CONSENSUS_VERSION || '12';
         // Path to the Leo project directory
