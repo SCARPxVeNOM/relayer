@@ -64,10 +64,13 @@ class AleoCliService {
      */
     async executeLeoCommand(functionName, args) {
         return new Promise((resolve, reject) => {
+            // Save to file for SDK broadcast fallback if CLI broadcast fails
+            const txOutputDir = path.join(this.projectDir, 'tx_output');
             const fullArgs = [
                 'execute', functionName,
                 ...args,
                 '--broadcast', '--yes',
+                '--save', txOutputDir,
                 '--network', this.network,
                 '--endpoint', this.endpoint,
                 '--consensus-version', this.consensusVersion
