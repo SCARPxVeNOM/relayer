@@ -41,8 +41,8 @@ class HealthAPI {
         if (url.pathname === '/health') {
           await this.handleHealth(req, res);
         } else if (url.pathname === '/metrics' && req.headers.accept?.includes('text/plain')) {
-           // Handle Prometheus if accept header matches or if path is specific
-           await this.handlePrometheusMetrics(req, res);
+          // Handle Prometheus if accept header matches or if path is specific
+          await this.handlePrometheusMetrics(req, res);
         } else if (url.pathname === '/metrics/prometheus') {
           await this.handlePrometheusMetrics(req, res);
         } else if (url.pathname === '/status') {
@@ -77,6 +77,10 @@ class HealthAPI {
         } else if (url.pathname === '/api/intent' && req.method === 'POST') {
           const { createIntent } = await import('./intent.js');
           await createIntent(req, res);
+        } else if (url.pathname === '/api/intent/register' && req.method === 'POST') {
+          // Hybrid flow: Leo Wallet signed tx + EVM execution
+          const { registerIntent } = await import('./intent.js');
+          await registerIntent(req, res);
         } else {
           res.writeHead(404);
           res.end(JSON.stringify({ error: 'Not found' }));
@@ -198,7 +202,7 @@ class HealthAPI {
       const queueSizes = batchQueue.getQueueSizes?.() || {};
       const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
       const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
-      
+
       const status = {
         relayer: {
           status: 'running',

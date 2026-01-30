@@ -1,8 +1,9 @@
 /**
  * Intent API - Creates private Aleo intents
  * 
- * This endpoint is the ONLY way frontend creates execution intents.
- * Backend handles all Aleo transactions and EVM execution.
+ * Supports TWO modes:
+ * 1. Backend-signed: POST /api/intent - Backend creates Aleo tx
+ * 2. Hybrid (Leo Wallet): POST /api/intent/register - Frontend signs via Leo Wallet, backend triggers EVM
  */
 
 import { createLogger } from '../utils/logger.js';
@@ -14,7 +15,7 @@ const logger = createLogger("IntentAPI");
 
 /**
  * POST /api/intent
- * Create private intent via Aleo
+ * Create private intent via Aleo (Backend-signed mode)
  * 
  * Frontend sends: { chainId, amount, recipient }
  * Backend: Creates Aleo request_transfer transaction
@@ -74,6 +75,93 @@ export async function createIntent(req, res) {
     }
   } catch (error) {
     logger.error('Failed to create intent', error);
+    sendJson(res, 500, { error: error?.message || 'Internal server error' });
+  }
+}
+
+/**
+ * POST /api/intent/register
+ * Register a Leo Wallet-signed intent for EVM execution (Hybrid mode)
+ * 
+ * Frontend: Signs Aleo tx via Leo Wallet, then calls this endpoint
+ * Backend: Receives { txId, chainId, amount, recipient } and triggers EVM send
+ * 
+ * This allows:
+ * - User signs with their own wallet (decentralized)
+ * - Backend still handles EVM execution (no user ETH needed)
+ */
+export async function registerIntent(req, res) {
+  try {
+    const { txId, chainId, amount, recipient } = await readJsonBody(req);
+
+    // Validate input
+    if (!txId || !chainId || !amount || !recipient) {
+      sendJson(res, 400, { error: 'Missing required fields: txId, chainId, amount, recipient' });
+      return;
+    }
+
+    // Validate Aleo transaction ID format (starts with 'at1')
+    if (!txId.startsWith('at1')) {
+      sendJson(res, 400, { error: 'Invalid Aleo transaction ID format' });
+      return;
+    }
+
+    // Map chainId string/number to CHAINS constant
+    let targetChainId;
+    if (chainId === 1 || chainId === '1' || chainId === 11155111 || chainId === '11155111' || chainId === 'sepolia') {
+      targetChainId = CHAINS.ETH_SEPOLIA;
+    } else if (chainId === 2 || chainId === '2' || chainId === 80002 || chainId === '80002' || chainId === 'amoy') {
+      targetChainId = CHAINS.POLYGON_AMOY;
+    } else {
+      sendJson(res, 400, { error: `Unsupported chainId: ${chainId}` });
+      return;
+    }
+
+    // Validate recipient address (EVM)
+    if (!ethers.isAddress(recipient)) {
+      sendJson(res, 400, { error: 'Invalid EVM recipient address' });
+      return;
+    }
+
+    // Validate amount
+    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      sendJson(res, 400, { error: 'Invalid amount' });
+      return;
+    }
+
+    logger.info('🔗 Registering Leo Wallet intent for EVM execution', {
+      txId,
+      chainId: targetChainId,
+      amount,
+      recipient
+    });
+
+    // Import handleTransferIntent from index.js to trigger EVM execution
+    const { handleTransferIntent } = await import('../index.js');
+
+    // Create the intent object matching what Aleo listener produces
+    const intent = {
+      requestId: txId,  // Use Aleo tx ID as request ID
+      chainId: targetChainId,
+      amount: amount,
+      recipient: recipient,
+      source: 'leo-wallet',  // Mark source for tracking
+      registeredAt: Date.now(),
+    };
+
+    // Queue for EVM execution
+    await handleTransferIntent(intent);
+
+    logger.info('✅ Intent registered and queued for EVM execution', { txId, recipient });
+
+    sendJson(res, 200, {
+      status: 'queued',
+      requestId: txId,
+      message: 'Intent registered for EVM execution',
+      explorer: `https://testnet.explorer.provable.com/transaction/${txId}`
+    });
+  } catch (error) {
+    logger.error('Failed to register intent', error);
     sendJson(res, 500, { error: error?.message || 'Internal server error' });
   }
 }

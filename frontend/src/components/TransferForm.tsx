@@ -3,40 +3,43 @@
 import React from 'react';
 import { useSessionStore } from '@/stores/session.store';
 import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
-import { config } from '@/config';
+import { Transaction, WalletAdapterNetwork } from '@demox-labs/aleo-wallet-adapter-base';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Loader2, ArrowRight } from 'lucide-react';
-import { apiClient } from '@/services/api.client';
+import { Loader2, ArrowRight, ExternalLink } from 'lucide-react';
 
 /**
  * Transfer Form - Command Core Intent Creation
  * 
- * This is the ONLY component that creates execution intents.
+ * This component creates execution intents directly via Leo Wallet.
+ * User signs the transaction themselves - more secure than backend signing.
  * 
  * Form → Aleo Intent Mapping:
  * - Payload Volume → amount (private)
  * - Mission Gateway → chainId (private)
- * - Endpoint Identity → recipient (private)
+ * - Endpoint Identity → recipient (stored as note)
  * 
- * On submit: POST /api/intent
- * Backend handles all EVM transactions.
+ * On submit: Leo Wallet signs and broadcasts directly to Aleo
  */
+
+const ALEO_PROGRAM_ID = 'advance_privacy.aleo';
+const FEE_MICROCREDITS = 100_000; // 0.1 credits fee
+
 export const TransferForm: React.FC = () => {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, requestTransaction } = useWallet();
   const { controlSessionActive } = useSessionStore();
   const aleoConnected = connected && !!publicKey;
-  
+
   const [form, setForm] = React.useState({
     amount: '',
     destinationChain: 'sepolia' as 'sepolia' | 'amoy',
     recipientAddress: '',
   });
-  
+
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [requestId, setRequestId] = React.useState<string | null>(null);
+  const [txId, setTxId] = React.useState<string | null>(null);
 
   // Form is disabled unless: Aleo connected AND session active
   const isFormDisabled = !aleoConnected || !controlSessionActive;
@@ -44,35 +47,90 @@ export const TransferForm: React.FC = () => {
   const isSubmitEnabled = React.useMemo(() => {
     if (isFormDisabled || isSubmitting) return false;
     if (!form.amount || !form.recipientAddress) return false;
+    if (!requestTransaction) return false;
     // Basic validation
     if (isNaN(parseFloat(form.amount)) || parseFloat(form.amount) <= 0) return false;
     if (!form.recipientAddress.startsWith('0x') || form.recipientAddress.length !== 42) return false;
     return true;
-  }, [isFormDisabled, isSubmitting, form]);
+  }, [isFormDisabled, isSubmitting, form, requestTransaction]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSubmitEnabled) return;
-    
+    if (!isSubmitEnabled || !publicKey || !requestTransaction) return;
+
     setIsSubmitting(true);
     setError(null);
-    setRequestId(null);
+    setTxId(null);
 
     try {
-      // Map form to intent
-      const chainId = form.destinationChain === 'sepolia' 
-        ? config.chains.sepolia.chainId 
-        : config.chains.amoy.chainId;
+      // Convert amount to microcredits representation (for intent tracking)
+      // Using 16 decimal places like Aleo credits: 0.01 ETH = 10000000000000000
+      const amountFloat = parseFloat(form.amount);
+      const amountInUnits = BigInt(Math.floor(amountFloat * 1e18));
 
-      // POST /api/intent - Backend handles Aleo transaction
-      const response = await apiClient.createIntent({
-        chainId,
-        amount: form.amount,
-        recipient: form.recipientAddress,
+      // Map chain selection to chainId: 1 = ETH (Sepolia), 2 = Polygon (Amoy)
+      const chainId = form.destinationChain === 'sepolia' ? 1 : 2;
+
+      // Build inputs for advance_privacy.aleo::create_intent
+      // Function: create_intent(amount: u64, chain_id: u8, recipient: address)
+      const inputs = [
+        `${amountInUnits}u64`,        // amount in wei-like units
+        `${chainId}u8`,               // 1=ETH, 2=Polygon
+        publicKey.toString()          // Aleo address (the program stores EVM recipient differently)
+      ];
+
+      console.log('[TransferForm] Building transaction:', {
+        program: ALEO_PROGRAM_ID,
+        function: 'create_intent',
+        inputs,
+        fee: FEE_MICROCREDITS
       });
 
-      setRequestId(response.requestId);
-      
+      // Create the Aleo transaction using the wallet adapter
+      // feePrivate=false uses public credits for fee (no private record needed)
+      const aleoTransaction = Transaction.createTransaction(
+        publicKey,
+        WalletAdapterNetwork.TestnetBeta,
+        ALEO_PROGRAM_ID,
+        'create_intent',
+        inputs,
+        FEE_MICROCREDITS,
+        false  // feePrivate = false to use PUBLIC credits for fee
+      );
+
+      console.log('[TransferForm] Requesting transaction signature from Leo Wallet...');
+
+      // Request the transaction - Leo Wallet will prompt user to sign
+      const transactionId = await requestTransaction(aleoTransaction);
+
+      console.log('[TransferForm] Transaction submitted!', { transactionId });
+
+      // HYBRID FLOW: Notify backend to trigger EVM execution
+      // This sends the EVM recipient address so backend can send ETH
+      console.log('[TransferForm] Registering intent with backend for EVM execution...');
+
+      const registerResponse = await fetch(`${process.env.NEXT_PUBLIC_RELAYER_API_URL}/api/intent/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          txId: transactionId,
+          chainId: chainId, // 1 or 2
+          amount: form.amount,
+          recipient: form.recipientAddress, // EVM address!
+        }),
+      });
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json().catch(() => ({}));
+        console.warn('[TransferForm] Backend registration failed:', errorData);
+        // Don't throw - Aleo tx succeeded, just log warning
+      } else {
+        const registerData = await registerResponse.json();
+        console.log('[TransferForm] Backend registered intent:', registerData);
+      }
+
+      setTxId(transactionId);
+
       // Reset form after successful submission
       setForm({
         amount: '',
@@ -80,7 +138,19 @@ export const TransferForm: React.FC = () => {
         recipientAddress: '',
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Intent creation failed');
+      console.error('[TransferForm] Transaction failed:', err);
+
+      if (err instanceof Error) {
+        if (err.message.includes('rejected') || err.message.includes('User rejected')) {
+          setError('Transaction rejected by user');
+        } else if (err.message.includes('Insufficient')) {
+          setError('Insufficient Aleo credits for fee');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('Transaction failed');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -147,7 +217,7 @@ export const TransferForm: React.FC = () => {
           {isSubmitting ? (
             <div className="flex items-center gap-3">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Executing Bridge...
+              Signing via Leo Wallet...
             </div>
           ) : (
             <div className="flex items-center gap-3">
@@ -158,10 +228,18 @@ export const TransferForm: React.FC = () => {
         </Button>
       </div>
 
-      {requestId && (
+      {txId && (
         <div className="p-4 border border-primary/20 bg-primary/5 text-[9px] font-black text-primary uppercase tracking-[0.2em] text-center">
-          SECURE HANDSHAKE INITIATED<br />
-          <span className="text-[8px] font-mono text-white/60 mt-1 block">Request ID: {requestId}</span>
+          🔐 Transaction Signed via Leo Wallet<br />
+          <a
+            href={`https://testnet.explorer.provable.com/transaction/${txId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[8px] font-mono text-white/60 mt-1 flex items-center justify-center gap-1 hover:text-primary transition-colors"
+          >
+            TX: {txId.slice(0, 20)}...{txId.slice(-8)}
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       )}
 
