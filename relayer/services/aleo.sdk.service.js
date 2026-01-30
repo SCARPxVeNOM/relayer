@@ -21,7 +21,7 @@ class AleoSDKService {
     constructor() {
         this.privateKey = process.env.ALEO_PRIVATE_KEY;
         this.programId = 'advance_privacy.aleo'; // Updated to advanced privacy program!
-        this.networkUrl = 'https://api.explorer.provable.com/v1';
+        this.networkUrl = 'https://api.explorer.provable.com/v1/testnet';
 
         if (!this.privateKey) {
             throw new Error('ALEO_PRIVATE_KEY not configured');
