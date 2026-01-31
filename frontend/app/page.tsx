@@ -46,8 +46,8 @@ export default function Home() {
   useEffect(() => {
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-    // Set initial states
-    gsap.set([hudRef.current, titleRef.current, subtitleRef.current, buttonsRef.current, scrollIndicatorRef.current], {
+    // Set initial states - buttonsRef excluded so buttons are visible as fallback
+    gsap.set([hudRef.current, titleRef.current, subtitleRef.current, scrollIndicatorRef.current], {
       opacity: 0
     });
 
@@ -73,19 +73,23 @@ export default function Home() {
         { opacity: 0, y: 20 },
         { opacity: 1, y: 0, duration: 0.6 },
         '-=0.3'
-      )
-      // Buttons stagger
-      .fromTo(buttonsRef.current?.children || [],
+      );
+
+    // Buttons stagger - only animate if ref exists
+    if (buttonsRef.current && buttonsRef.current.children.length > 0) {
+      tl.fromTo(buttonsRef.current.children,
         { opacity: 0, y: 20, scale: 0.9 },
         { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.15 },
         '-=0.2'
-      )
-      // Scroll indicator
-      .fromTo(scrollIndicatorRef.current,
-        { opacity: 0 },
-        { opacity: 0.3, duration: 0.8 },
-        '-=0.3'
       );
+    }
+
+    // Scroll indicator
+    tl.fromTo(scrollIndicatorRef.current,
+      { opacity: 0 },
+      { opacity: 0.3, duration: 0.8 },
+      '-=0.3'
+    );
 
     // telemetry HUD animation
     gsap.fromTo(telemetryRef.current,
