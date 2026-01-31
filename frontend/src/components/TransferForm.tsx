@@ -97,7 +97,9 @@ export const TransferForm: React.FC = () => {
     }
   }, [error]);
 
-  const isFormDisabled = !aleoConnected || !controlSessionActive;
+  // Form is disabled only if Aleo wallet not connected
+  // Session init is optional - form can be filled, but submission requires session
+  const isFormDisabled = !aleoConnected;
 
   const isSubmitEnabled = React.useMemo(() => {
     if (isFormDisabled || isSubmitting) return false;
@@ -263,7 +265,7 @@ export const TransferForm: React.FC = () => {
       {isFormDisabled && (
         <div className="p-4 border border-white/5 bg-white/5 text-[9px] font-black uppercase tracking-[0.3em] text-white/40 text-center flex items-center justify-center gap-2">
           <Shield className="w-3 h-3" />
-          {!aleoConnected ? 'Connect Aleo Wallet' : !controlSessionActive ? 'Initialize Session on Landing Page' : 'Awaiting Secure Uplink Handshake'}
+          Connect Aleo Wallet to Continue
         </div>
       )}
 
