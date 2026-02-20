@@ -1,8 +1,6 @@
 "use client";
 
 import { Shield, ChevronRight, Menu, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useWalletStore } from "@/stores/wallet.store";
 import { useWallet } from "@demox-labs/aleo-wallet-adapter-react";
 import { WalletMultiButton } from "@demox-labs/aleo-wallet-adapter-reactui";
 import Link from "next/link";
@@ -10,12 +8,11 @@ import { useState, useEffect, useRef } from "react";
 import gsap from 'gsap';
 
 export function Header() {
-    const { metamask, leoWallet: zustandLeoWallet } = useWalletStore();
     const { publicKey, connected } = useWallet();
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    const isConnected = metamask.connected || connected;
+    const isConnected = connected;
 
     // Refs for animations
     const headerRef = useRef<HTMLElement>(null);
@@ -79,16 +76,16 @@ export function Header() {
                         />
                         <div className="flex flex-col -space-y-1">
                             <span className="text-[9px] md:text-[10px] font-bold tracking-[0.3em] md:tracking-[0.4em] uppercase text-white/40 group-hover:text-primary transition-colors duration-300">
-                                Ground Control
+                                Envelop
                             </span>
                         </div>
                     </Link>
 
                     {/* Desktop Nav */}
                     <nav ref={navRef} className="hidden md:flex items-center gap-8 lg:gap-10">
-                        <NavLink label="Mission" href="/mission" />
-                        <NavLink label="Telemetry" href="#" />
-                        <NavLink label="Protocol" href="/protocol" />
+                        <NavLink label="Home" href="/" />
+                        <NavLink label="System" href="/mission" />
+                        <NavLink label="App" href="/protocol" />
                     </nav>
 
                     {/* Mobile Menu Button */}
@@ -109,7 +106,7 @@ export function Header() {
                         ) : (
                             <div className="[&_.wallet-adapter-button]:!h-9 [&_.wallet-adapter-button]:!px-6 [&_.wallet-adapter-button]:!bg-transparent [&_.wallet-adapter-button]:!border [&_.wallet-adapter-button]:!border-primary/40 [&_.wallet-adapter-button]:!text-primary [&_.wallet-adapter-button:hover]:!bg-primary/5 [&_.wallet-adapter-button:hover]:!border-primary [&_.wallet-adapter-button]:!shadow-[0_0_20px_rgba(255,77,0,0.1)] [&_.wallet-adapter-button]:!text-[11px] [&_.wallet-adapter-button]:!font-black [&_.wallet-adapter-button]:!uppercase [&_.wallet-adapter-button]:!tracking-[0.2em] [&_.wallet-adapter-button]:!transition-all [&_.wallet-adapter-button]:!rounded-none [&_.wallet-adapter-button]:!flex [&_.wallet-adapter-button]:!items-center [&_.wallet-adapter-button]:!gap-2">
                                 <WalletMultiButton>
-                                    Connect Port <ChevronRight className="w-3.5 h-3.5 ml-2" />
+                                    Connect Wallet <ChevronRight className="w-3.5 h-3.5 ml-2" />
                                 </WalletMultiButton>
                             </div>
                         )}
@@ -121,9 +118,9 @@ export function Header() {
             {mobileMenuOpen && (
                 <div className="md:hidden border-t border-white/5 bg-black/95 backdrop-blur-lg animate-slideDown">
                     <div className="px-4 py-4 space-y-4">
-                        <MobileNavLink label="Mission" href="/mission" onClick={() => setMobileMenuOpen(false)} />
-                        <MobileNavLink label="Telemetry" href="#" onClick={() => setMobileMenuOpen(false)} />
-                        <MobileNavLink label="Protocol" href="/protocol" onClick={() => setMobileMenuOpen(false)} />
+                        <MobileNavLink label="Home" href="/" onClick={() => setMobileMenuOpen(false)} />
+                        <MobileNavLink label="System" href="/mission" onClick={() => setMobileMenuOpen(false)} />
+                        <MobileNavLink label="App" href="/protocol" onClick={() => setMobileMenuOpen(false)} />
                         <div className="pt-4 border-t border-white/5">
                             {isConnected ? (
                                 <div className="flex items-center gap-3 px-4 py-2 border border-white/5 bg-secondary/5 text-[10px] font-black uppercase tracking-[0.2em]">

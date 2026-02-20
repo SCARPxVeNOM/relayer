@@ -8,6 +8,7 @@ import {
   DecryptPermission,
   WalletAdapterNetwork,
 } from "@demox-labs/aleo-wallet-adapter-base";
+import { ShieldWalletAdapter } from "@/wallets/ShieldWalletAdapter";
 
 // Import default styles
 import "@demox-labs/aleo-wallet-adapter-reactui/styles.css";
@@ -21,23 +22,32 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
 
   const wallets = useMemo(
     () => [
+      new ShieldWalletAdapter({
+        appName: "Envelop Private Finance",
+      }),
       new LeoWalletAdapter({
-        appName: "Privacy Interface",
+        appName: "Envelop Private Finance",
       }),
     ],
     []
   );
 
-  // Check for Leo Wallet extension availability
+  // Check wallet extension availability for debugging during development.
   useEffect(() => {
     const checkWallet = () => {
+      const shieldWallet = typeof window !== 'undefined' && (window as any).shieldWallet;
+      const shield = typeof window !== 'undefined' && (window as any).shield;
       const leoWallet = typeof window !== 'undefined' && (window as any).leoWallet;
       const leo = typeof window !== 'undefined' && (window as any).leo;
+      const hasShieldWallet = shieldWallet || shield;
       const hasLeoWallet = leoWallet || leo;
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('[WalletProvider] Leo Wallet detection:', {
-          available: !!hasLeoWallet,
+        console.log('[WalletProvider] Wallet detection:', {
+          shieldAvailable: !!hasShieldWallet,
+          shieldWallet: shieldWallet ? 'Found' : 'Not found',
+          shield: shield ? 'Found' : 'Not found',
+          leoAvailable: !!hasLeoWallet,
           leoWallet: leoWallet ? 'Found' : 'Not found',
           leo: leo ? 'Found' : 'Not found'
         });

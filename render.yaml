@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: privacy-bridge-relayer
+    name: envelop-aleo-fintech
     runtime: docker
     dockerfilePath: ./Dockerfile
     region: oregon
@@ -21,5 +21,9 @@ services:
         sync: false
       - key: ALEO_USE_REAL_NETWORK
         value: "true"
+      - key: ALEO_RELAY_SUBMIT_URL
+        value: https://api.explorer.provable.com/v1/testnet/transaction/broadcast
+      - key: ALEO_RELAY_PAYLOAD_MODE
+        value: raw
       - key: LEO_PATH
         value: /root/.cargo/bin/leo

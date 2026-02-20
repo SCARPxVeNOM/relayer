@@ -1,7 +1,7 @@
-# Privacy Bridge Relayer - Fly.io Configuration
+# Envelop Aleo Fintech - Fly.io Configuration
 # https://fly.io/docs/reference/configuration/
 
-app = "privacy-bridge-relayer"
+app = "envelop-aleo-fintech"
 primary_region = "sjc"  # San Jose (or pick your preferred region)
 
 [build]
@@ -12,6 +12,8 @@ primary_region = "sjc"  # San Jose (or pick your preferred region)
   PORT = "3001"
   LEO_PATH = "/root/.cargo/bin/leo"
   ALEO_USE_REAL_NETWORK = "true"
+  ALEO_RELAY_SUBMIT_URL = "https://api.explorer.provable.com/v1/testnet/transaction/broadcast"
+  ALEO_RELAY_PAYLOAD_MODE = "raw"
 
 [http_service]
   internal_port = 3001

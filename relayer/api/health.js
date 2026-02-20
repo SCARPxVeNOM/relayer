@@ -1,249 +1,246 @@
-/**
- * Health Check API - Simple HTTP server for health checks and metrics
- */
+import http from "http";
+import appDb from "../storage/app.db.js";
+import { createLogger } from "../utils/logger.js";
+import { sendJson } from "./http.js";
+import {
+  sendOtpCode,
+  verifyOtpCode,
+  createWalletChallenge,
+  verifyWalletChallenge,
+} from "./routes/auth.js";
+import { getMe, listSupportedTokens, getBalances, getActivity } from "./routes/assets.js";
+import { getSwapQuote, postSwapExecute, listSwaps } from "./routes/swap.js";
+import { sendPayment, listPayments } from "./routes/payments.js";
+import { createInvoice, listInvoices, payInvoice } from "./routes/invoices.js";
+import {
+  yieldGetAssets,
+  yieldGetQuote,
+  yieldSolve,
+  listYieldQuotes,
+  listYieldActions,
+} from "./routes/yield.js";
+import { submitRelay, listRelaySubmissions, getRelayStatus } from "./routes/relay.js";
 
-import http from 'http';
-import { createLogger } from '../utils/logger.js';
-import transactionStorage from '../storage/transaction.db.js';
-import batchQueue from '../batch.queue.js';
-import ethExecutor from '../executor.eth.js';
-import polygonExecutor from '../executor.polygon.js';
+const logger = createLogger("AleoFintechAPI");
 
-const logger = createLogger("HealthAPI");
+function uptimeInfo() {
+  return {
+    uptimeSec: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function telemetryStub() {
+  return {
+    bridgeLink: "STABLE",
+    encryptionEngine: "LOCKED",
+    networkOrientation: [1, 1, 1, 1, 0],
+    zkSystemStatus: "Aleo shielded records active",
+    mode: "aleo-native",
+  };
+}
 
 class HealthAPI {
   constructor() {
     this.server = null;
-    // Render assigns PORT dynamically, fallback to HEALTH_PORT or 3001
-    this.port = parseInt(process.env.PORT || process.env.HEALTH_PORT || "3001");
+    this.port = parseInt(process.env.PORT || process.env.HEALTH_PORT || "3001", 10);
   }
 
-  /**
-   * Start health check server
-   */
+  async route(req, res, url) {
+    const method = req.method || "GET";
+    const pathname = url.pathname;
+
+    if (method === "GET" && pathname === "/health") {
+      return sendJson(res, 200, {
+        status: "healthy",
+        service: "envelop-aleo-fintech",
+        ...uptimeInfo(),
+      });
+    }
+
+    if (method === "GET" && pathname === "/status") {
+      appDb.cleanupExpired();
+      return sendJson(res, 200, {
+        status: "running",
+        service: "envelop-aleo-fintech",
+        ...uptimeInfo(),
+      });
+    }
+
+    // Backward compatible telemetry endpoints used by existing UI widgets.
+    if (method === "GET" && pathname === "/api/telemetry") {
+      return sendJson(res, 200, telemetryStub());
+    }
+    if (method === "GET" && pathname === "/api/latency") {
+      return sendJson(res, 200, { value: 22, unit: "ms", status: "SECURED" });
+    }
+    if (method === "GET" && pathname === "/api/heartbeat") {
+      return sendJson(res, 200, { pulseRate: "NORMAL", activity: 2, timestamp: Date.now() });
+    }
+    if (method === "GET" && pathname === "/api/chains") {
+      return sendJson(res, 200, {
+        linkStatus: "ALEO_NATIVE",
+        chains: [{ id: "aleo-testnet", status: "active" }],
+      });
+    }
+    if (method === "GET" && pathname === "/api/aleo/status") {
+      return sendJson(res, 200, {
+        status: "active",
+        program:
+          process.env.ALEO_PROGRAM_ID ||
+          "envelop_swap.aleo + envelop_invoice.aleo + envelop_payments.aleo + envelop_yield.aleo",
+        zkProof: "enabled",
+      });
+    }
+    if (method === "GET" && pathname === "/api/version") {
+      return sendJson(res, 200, {
+        protocol: "ENVELOP-2",
+        gateway: "ALEO_FINTECH_CORE",
+        build: process.env.npm_package_version || "1.0.0",
+      });
+    }
+    if (method === "GET" && pathname === "/api/relayers") {
+      return sendJson(res, 200, {
+        activeNode: "BLIND_RELAYER_ALEO_01",
+        availableUplinks: 1,
+        region: process.env.RELAYER_REGION || "us-central",
+      });
+    }
+
+    // Auth + onboarding
+    if (method === "POST" && pathname === "/api/auth/otp/send") {
+      return sendOtpCode(req, res);
+    }
+    if (method === "POST" && pathname === "/api/auth/otp/verify") {
+      return verifyOtpCode(req, res);
+    }
+    if (method === "POST" && pathname === "/api/auth/wallet/challenge") {
+      return createWalletChallenge(req, res);
+    }
+    if (method === "POST" && pathname === "/api/auth/wallet/verify") {
+      return verifyWalletChallenge(req, res);
+    }
+
+    // Wallet + assets
+    if (method === "GET" && pathname === "/api/me") {
+      return getMe(req, res);
+    }
+    if (method === "GET" && pathname === "/api/assets/tokens") {
+      return listSupportedTokens(req, res);
+    }
+    if (method === "GET" && pathname === "/api/assets/balances") {
+      return getBalances(req, res);
+    }
+    if (method === "GET" && pathname === "/api/assets/activity") {
+      return getActivity(req, res);
+    }
+
+    // Swap
+    if (method === "POST" && pathname === "/api/swap/quote") {
+      return getSwapQuote(req, res);
+    }
+    if (method === "POST" && pathname === "/api/swap/execute") {
+      return postSwapExecute(req, res);
+    }
+    if (method === "GET" && pathname === "/api/swaps") {
+      return listSwaps(req, res);
+    }
+
+    // Yield / stake
+    if (method === "GET" && (pathname === "/api/yield/get_assets" || pathname === "/api/yield/assets")) {
+      return yieldGetAssets(req, res, url);
+    }
+    if (method === "POST" && (pathname === "/api/yield/get_quote" || pathname === "/api/yield/quote")) {
+      return yieldGetQuote(req, res);
+    }
+    if (method === "POST" && pathname === "/api/yield/solve") {
+      return yieldSolve(req, res);
+    }
+    if (method === "GET" && pathname === "/api/yield/quotes") {
+      return listYieldQuotes(req, res, url);
+    }
+    if (method === "GET" && pathname === "/api/yield/actions") {
+      return listYieldActions(req, res, url);
+    }
+
+    // Payments
+    if (method === "POST" && pathname === "/api/payments/send") {
+      return sendPayment(req, res);
+    }
+    if (method === "GET" && pathname === "/api/payments") {
+      return listPayments(req, res);
+    }
+
+    // Invoices
+    if (method === "POST" && pathname === "/api/invoices") {
+      return createInvoice(req, res);
+    }
+    if (method === "GET" && pathname === "/api/invoices") {
+      return listInvoices(req, res);
+    }
+    if (method === "POST" && pathname.startsWith("/api/invoices/") && pathname.endsWith("/pay")) {
+      const parts = pathname.split("/");
+      const invoiceId = parts[3];
+      return payInvoice(req, res, invoiceId);
+    }
+
+    // Blind relay
+    if (method === "POST" && pathname === "/api/relay/submit") {
+      return submitRelay(req, res);
+    }
+    if (method === "GET" && pathname === "/api/relay/submissions") {
+      return listRelaySubmissions(req, res);
+    }
+    if (method === "GET" && pathname.startsWith("/api/relay/status/")) {
+      const parts = pathname.split("/");
+      const txId = parts[4];
+      return getRelayStatus(req, res, txId);
+    }
+
+    return sendJson(res, 404, {
+      success: false,
+      error: "Not found",
+      path: pathname,
+    });
+  }
+
   start() {
+    appDb.initialize();
     this.server = http.createServer(async (req, res) => {
       try {
-        // CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-        res.setHeader('Content-Type', 'application/json');
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        res.setHeader("Content-Type", "application/json");
 
-        if (req.method === 'OPTIONS') {
+        if (req.method === "OPTIONS") {
           res.writeHead(200);
           res.end();
           return;
         }
 
         const url = new URL(req.url, `http://${req.headers.host}`);
-
-        if (url.pathname === '/health') {
-          await this.handleHealth(req, res);
-        } else if (url.pathname === '/metrics' && req.headers.accept?.includes('text/plain')) {
-          // Handle Prometheus if accept header matches or if path is specific
-          await this.handlePrometheusMetrics(req, res);
-        } else if (url.pathname === '/metrics/prometheus') {
-          await this.handlePrometheusMetrics(req, res);
-        } else if (url.pathname === '/status') {
-          await this.handleStatus(req, res);
-        } else if (url.pathname === '/api/telemetry') {
-          const { getTelemetry } = await import('./telemetry.js');
-          await getTelemetry(req, res);
-        } else if (url.pathname === '/api/latency') {
-          const { getLatency } = await import('./telemetry.js');
-          await getLatency(req, res);
-        } else if (url.pathname === '/api/heartbeat') {
-          const { getHeartbeat } = await import('./telemetry.js');
-          await getHeartbeat(req, res);
-        } else if (url.pathname === '/api/metrics' && !url.searchParams.get('format')) { // Avoid conflict with prometheus
-          const { getDetailedMetrics } = await import('./telemetry.js');
-          await getDetailedMetrics(req, res);
-        } else if (url.pathname === '/api/chains') {
-          const { getChains } = await import('./telemetry.js');
-          await getChains(req, res);
-        } else if (url.pathname === '/api/aleo/status') {
-          const { getAleoStatus } = await import('./telemetry.js');
-          await getAleoStatus(req, res);
-        } else if (url.pathname === '/api/version') {
-          const { getVersion } = await import('./telemetry.js');
-          await getVersion(req, res);
-        } else if (url.pathname === '/api/relayers') {
-          const { getRelayers } = await import('./telemetry.js');
-          await getRelayers(req, res);
-        } else if (url.pathname === '/api/session/init' && req.method === 'POST') {
-          const { initSession } = await import('./session.js');
-          await initSession(req, res);
-        } else if (url.pathname === '/api/intent' && req.method === 'POST') {
-          const { createIntent } = await import('./intent.js');
-          await createIntent(req, res);
-        } else if (url.pathname === '/api/intent/register' && req.method === 'POST') {
-          // Hybrid flow: Leo Wallet signed tx + EVM execution
-          const { registerIntent } = await import('./intent.js');
-          await registerIntent(req, res);
-        } else {
-          res.writeHead(404);
-          res.end(JSON.stringify({ error: 'Not found' }));
-        }
+        await this.route(req, res, url);
       } catch (error) {
-        logger.error("Health API error", error);
-        res.writeHead(500);
-        res.end(JSON.stringify({ error: 'Internal server error' }));
+        logger.error("Unhandled API error", error);
+        sendJson(res, 500, { success: false, error: "Internal server error" });
       }
     });
 
     this.server.listen(this.port, () => {
-      logger.info(`Health API server started on port ${this.port}`);
+      logger.info(`API server listening on port ${this.port}`);
     });
   }
 
-  /**
-   * Handle health check
-   */
-  async handleHealth(req, res) {
-    const health = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: process.env.npm_package_version || '1.0.0',
-    };
-
-    res.writeHead(200);
-    res.end(JSON.stringify(health, null, 2));
-  }
-
-  /**
-   * Handle metrics endpoint
-   */
-  async handleMetrics(req, res) {
-    try {
-      const queueSizes = batchQueue.getQueueSizes?.() || {};
-
-      // Get wallet statuses from executors (best-effort)
-      const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
-      const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
-
-      // Get transaction stats
-      const txStats = transactionStorage.initialized ? transactionStorage.getStats() : null;
-
-      const metricsData = {
-        queues: queueSizes,
-        wallets: {
-          eth: {
-            count: ethStatus.length,
-            statuses: ethStatus,
-          },
-          polygon: {
-            count: polygonStatus.length,
-            statuses: polygonStatus,
-          },
-        },
-        transactions: txStats,
-        memory: {
-          heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-          rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-        },
-      };
-
-      res.writeHead(200);
-      res.end(JSON.stringify(metricsData, null, 2));
-    } catch (error) {
-      logger.error("Failed to get metrics", error);
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: error.message }));
-    }
-  }
-
-  /**
-   * Prometheus-compatible plaintext metrics.
-   * This is intentionally lightweight for Render deploys.
-   */
-  async handlePrometheusMetrics(req, res) {
-    try {
-      const queueSizes = batchQueue.getQueueSizes?.() || {};
-      const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
-      const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
-
-      const lines = [];
-      lines.push(`# HELP relayer_queue_depth Current in-memory queue depth per chain`);
-      lines.push(`# TYPE relayer_queue_depth gauge`);
-      for (const [chainId, depth] of Object.entries(queueSizes)) {
-        lines.push(`relayer_queue_depth{chain_id="${chainId}"} ${Number(depth) || 0}`);
-      }
-
-      lines.push(`# HELP relayer_wallet_count Wallet count per chain`);
-      lines.push(`# TYPE relayer_wallet_count gauge`);
-      lines.push(`relayer_wallet_count{chain_id="11155111"} ${ethStatus.length}`);
-      lines.push(`relayer_wallet_count{chain_id="80002"} ${polygonStatus.length}`);
-
-      const ethActive = ethStatus.filter((w) => w.status === "active").length;
-      const polygonActive = polygonStatus.filter((w) => w.status === "active").length;
-      lines.push(`# HELP relayer_wallet_active Active wallet count per chain`);
-      lines.push(`# TYPE relayer_wallet_active gauge`);
-      lines.push(`relayer_wallet_active{chain_id="11155111"} ${ethActive}`);
-      lines.push(`relayer_wallet_active{chain_id="80002"} ${polygonActive}`);
-
-      res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-      res.writeHead(200);
-      res.end(lines.join("\n") + "\n");
-    } catch (error) {
-      logger.error("Failed to get Prometheus metrics", error);
-      res.writeHead(500);
-      res.end("error\n");
-    }
-  }
-
-  /**
-   * Handle status endpoint
-   */
-  async handleStatus(req, res) {
-    try {
-      const queueSizes = batchQueue.getQueueSizes?.() || {};
-      const ethStatus = await ethExecutor.getWalletStatus().catch(() => []);
-      const polygonStatus = await polygonExecutor.getWalletStatus().catch(() => []);
-
-      const status = {
-        relayer: {
-          status: 'running',
-          uptime: process.uptime(),
-        },
-        queues: queueSizes,
-        wallets: {
-          eth: {
-            count: ethStatus.length,
-            statuses: ethStatus,
-          },
-          polygon: {
-            count: polygonStatus.length,
-            statuses: polygonStatus,
-          },
-        },
-        storage: {
-          initialized: transactionStorage.initialized,
-        },
-      };
-
-      res.writeHead(200);
-      res.end(JSON.stringify(status, null, 2));
-    } catch (error) {
-      logger.error("Failed to get status", error);
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: error.message }));
-    }
-  }
-
-  /**
-   * Stop health check server
-   */
   stop() {
-    if (this.server) {
-      this.server.close(() => {
-        logger.info("Health API server stopped");
-      });
+    if (!this.server) {
+      return;
     }
+    this.server.close(() => {
+      logger.info("API server stopped");
+    });
+    appDb.close();
   }
 }
 
 export default new HealthAPI();
-

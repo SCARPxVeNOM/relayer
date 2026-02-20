@@ -1,63 +1,205 @@
-/**
- * API Client - Backend Communication
- * 
- * This client handles ALL communication with the relayer backend.
- * Frontend NEVER sends EVM transactions directly - only creates Aleo intents.
- */
-
-import { config } from '@/config';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_RELAYER_API_URL || 'http://localhost:3001';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_RELAYER_API_URL || "http://localhost:3001";
 
 export interface HealthResponse {
   status: string;
-  timestamp: string;
-  uptime: number;
-  version: string;
-}
-
-export interface TelemetryResponse {
-  bridgeLink: 'STABLE' | 'DEGRADED';
-  encryptionEngine: 'LOCKED' | 'UNLOCKED';
-  networkOrientation: number[];
-  zkSystemStatus: string;
-}
-
-export interface MetricsResponse {
-  queues: Record<string, number>;
-  wallets: {
-    eth: { count: number; statuses: any[] };
-    polygon: { count: number; statuses: any[] };
-  };
-  queueMetrics: Record<string, any>;
-  memory: {
-    heapUsed: number;
-    heapTotal: number;
-    rss: number;
-  };
-}
-
-export interface RelayerStatus {
-  chainId: number;
-  address: string;
-  isAvailable: boolean;
-  pendingCount: number;
-}
-
-export interface IntentRequest {
-  chainId: number;
-  amount: string;
-  recipient: string;
-}
-
-export interface IntentResponse {
-  requestId: string;
-  status: 'pending';
+  timestamp?: string;
+  uptimeSec?: number;
+  service?: string;
 }
 
 export interface SessionInitResponse {
   sessionId: string;
   active: boolean;
+}
+
+export interface OtpSendResponse {
+  success: boolean;
+  challengeId: string;
+  phone: string;
+  channel: "whatsapp";
+  provider: string;
+  expiresInSec: number;
+  devCode?: string;
+}
+
+export interface OtpVerifyResponse {
+  success: boolean;
+  token: string;
+  expiresAt: number;
+  user: {
+    id: number;
+    phone: string;
+    walletAddress: string;
+  };
+  wallet: {
+    address: string;
+    createdNow: boolean;
+  };
+}
+
+export interface WalletAuthChallengeResponse {
+  success: boolean;
+  challengeId: string;
+  message: string;
+  nonce: string;
+  expiresAt: number;
+  expiresInSec: number;
+}
+
+export interface WalletAuthVerifyResponse {
+  success: boolean;
+  token: string;
+  expiresAt: number;
+  authMethod: "wallet";
+  signatureVerified: boolean;
+  warning?: string;
+  user: {
+    id: number;
+    phone: string;
+    walletAddress: string;
+  };
+  wallet: {
+    address: string;
+    createdNow: boolean;
+  };
+}
+
+export interface TokenMetadata {
+  id: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  standard: string;
+}
+
+export interface BalanceItem {
+  tokenId: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  standard: string;
+  amountAtomic: string;
+  amount: string;
+}
+
+export interface RelaySubmission {
+  id: string;
+  user_id: number;
+  client_tx_id: string | null;
+  serialized_length: number;
+  aleo_tx_id: string | null;
+  status: string;
+  mode: string;
+  response_json: string | null;
+  created_at: number;
+}
+
+export type YieldActionType = "stake" | "unstake" | "claim" | "rebalance";
+
+export interface YieldTransition {
+  programId: string;
+  functionName: string;
+  inputs: string[];
+}
+
+export interface YieldPlanStep {
+  type: "stake" | "unstake" | "claim";
+  assetId: string;
+  tokenId: string;
+  rewardTokenId: string;
+  amountAtomic: string;
+  minOutAtomic?: string;
+  apyBps?: number;
+  riskLevel?: string;
+  exitFeeBps?: number;
+}
+
+export interface YieldPlan {
+  action: YieldActionType;
+  tokenId?: string;
+  steps: YieldPlanStep[];
+  transitions: YieldTransition[];
+}
+
+export interface YieldAssetPositionView {
+  stakedAtomic: string;
+  unclaimedAtomic: string;
+  projectedYearlyRewardAtomic: string;
+}
+
+export interface YieldAsset {
+  id: string;
+  name: string;
+  protocol: string;
+  strategyType: string;
+  riskLevel: string;
+  tokenId: string;
+  tokenSymbol: string;
+  rewardTokenId: string;
+  rewardTokenSymbol: string;
+  apyBps: number;
+  minApyBps: number;
+  maxApyBps: number;
+  lockupDays: number;
+  exitFeeBps: number;
+  capacityAtomic: string;
+  position: YieldAssetPositionView;
+}
+
+export interface YieldQuote {
+  id: string;
+  action: YieldActionType;
+  expiresAt: number;
+  createdAt: number;
+  plan: YieldPlan;
+}
+
+export interface YieldHistoryQuote {
+  id: string;
+  action: YieldActionType;
+  intent: Record<string, unknown>;
+  plan: YieldPlan;
+  expiresAt: number;
+  createdAt: number;
+}
+
+export interface YieldHistoryAction {
+  id: string;
+  quoteId: string | null;
+  action: YieldActionType;
+  status: string;
+  aleoTxId: string | null;
+  plan: YieldPlan;
+  createdAt: number;
+}
+
+export interface YieldPositionRow {
+  userId: number;
+  assetId: string;
+  tokenId: string;
+  rewardTokenId: string;
+  stakedAtomic: string;
+  unclaimedAtomic: string;
+  lastAccrualAt: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface YieldAssetsResponse {
+  success: boolean;
+  assets: YieldAsset[];
+  positions: YieldPositionRow[];
+  quotes: YieldHistoryQuote[];
+  actions: YieldHistoryAction[];
+}
+
+export interface YieldSolveResponse {
+  success: boolean;
+  action: YieldHistoryAction;
+  plan: YieldPlan;
+  positions: YieldPositionRow[];
+  balances: BalanceItem[];
 }
 
 class APIClient {
@@ -67,216 +209,277 @@ class APIClient {
     this.baseUrl = API_BASE_URL;
   }
 
-  /**
-   * GET /api/health
-   * System health check
-   */
+  private async request<T>(
+    path: string,
+    options: RequestInit = {},
+    token?: string
+  ): Promise<T> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (options.headers && typeof options.headers === "object" && !Array.isArray(options.headers)) {
+      Object.assign(headers, options.headers as Record<string, string>);
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      headers,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message =
+        data?.error || data?.message || `${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+    return data;
+  }
+
   async getHealth(): Promise<HealthResponse> {
-    const response = await fetch(`${this.baseUrl}/health`);
-    if (!response.ok) {
-      throw new Error(`Health check failed: ${response.statusText}`);
-    }
-    return response.json();
+    return this.request<HealthResponse>("/health", { method: "GET" });
   }
 
-  /**
-   * GET /api/telemetry
-   * Read-only system telemetry
-   */
-  async getTelemetry(): Promise<TelemetryResponse> {
-    const response = await fetch(`${this.baseUrl}/api/telemetry`);
-    if (!response.ok) {
-      throw new Error(`Telemetry fetch failed: ${response.statusText}`);
-    }
-    return response.json();
+  async getTelemetry(): Promise<any> {
+    return this.request("/api/telemetry", { method: "GET" });
   }
 
-  /**
-   * GET /api/metrics
-   * Read-only system metrics
-   */
-  async getMetrics(): Promise<MetricsResponse> {
-    const response = await fetch(`${this.baseUrl}/metrics`);
-    if (!response.ok) {
-      throw new Error(`Metrics fetch failed: ${response.statusText}`);
-    }
-    return response.json();
+  async getLatency(_scope?: string): Promise<any> {
+    return this.request("/api/latency", { method: "GET" });
   }
 
-  /**
-   * GET /api/relayers
-   * Read-only relayer status
-   */
-  async getRelayers(): Promise<RelayerStatus[]> {
-    const response = await fetch(`${this.baseUrl}/status`);
-    if (!response.ok) {
-      throw new Error(`Relayers fetch failed: ${response.statusText}`);
-    }
-    const data = await response.json();
-    // Extract relayer statuses from response
-    const relayers: RelayerStatus[] = [];
-    
-    if (data.wallets?.eth?.statuses) {
-      data.wallets.eth.statuses.forEach((s: any) => {
-        relayers.push({
-          chainId: 11155111,
-          address: s.address,
-          isAvailable: s.isAvailable,
-          pendingCount: s.pendingCount || 0,
-        });
-      });
-    }
-    
-    if (data.wallets?.polygon?.statuses) {
-      data.wallets.polygon.statuses.forEach((s: any) => {
-        relayers.push({
-          chainId: 80002,
-          address: s.address,
-          isAvailable: s.isAvailable,
-          pendingCount: s.pendingCount || 0,
-        });
-      });
-    }
-    
-    return relayers;
+  async getHeartbeat(): Promise<any> {
+    return this.request("/api/heartbeat", { method: "GET" });
   }
 
-  /**
-   * GET /api/latency
-   * Median control-plane latency
-   */
-  async getLatency(scope?: string): Promise<{ value: number; unit: string; status: string }> {
-    const url = scope ? `${this.baseUrl}/api/latency?scope=${scope}` : `${this.baseUrl}/api/latency`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Latency fetch failed: ${response.statusText}`);
-    }
-    return response.json();
+  async getChains(): Promise<any> {
+    return this.request("/api/chains", { method: "GET" });
   }
 
-  /**
-   * GET /api/heartbeat
-   * Pulse rate based on queue activity
-   */
-  async getHeartbeat(): Promise<{ pulseRate: string; activity: number; timestamp: number }> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/heartbeat`);
-      if (!response.ok) {
-        // Return default values if endpoint not available (for backwards compatibility)
-        if (response.status === 404) {
-          return { pulseRate: 'IDLE', activity: 0, timestamp: Date.now() };
-        }
-        throw new Error(`Heartbeat fetch failed: ${response.statusText}`);
-      }
-      return response.json();
-    } catch (error) {
-      // Return default values on network errors
-      console.warn('Heartbeat endpoint not available, using defaults:', error);
-      return { pulseRate: 'IDLE', activity: 0, timestamp: Date.now() };
-    }
+  async getAleoStatus(): Promise<any> {
+    return this.request("/api/aleo/status", { method: "GET" });
   }
 
-  /**
-   * GET /api/chains
-   * Bridge link status
-   */
-  async getChains(): Promise<{ linkStatus: string; chains: any[] }> {
-    const response = await fetch(`${this.baseUrl}/api/chains`);
-    if (!response.ok) {
-      throw new Error(`Chains fetch failed: ${response.statusText}`);
-    }
-    return response.json();
+  async getVersion(): Promise<any> {
+    return this.request("/api/version", { method: "GET" });
   }
 
-  /**
-   * GET /api/aleo/status
-   * Encryption engine status
-   */
-  async getAleoStatus(): Promise<{ status: string; program: string; zkProof: string }> {
-    const response = await fetch(`${this.baseUrl}/api/aleo/status`);
-    if (!response.ok) {
-      throw new Error(`Aleo status fetch failed: ${response.statusText}`);
-    }
-    return response.json();
+  async getRelayerInfo(): Promise<any> {
+    return this.request("/api/relayers", { method: "GET" });
   }
 
-  /**
-   * GET /api/version
-   * Protocol version
-   */
-  async getVersion(): Promise<{ protocol: string; gateway: string; build: string }> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/version`);
-      if (!response.ok) {
-        // Return default values if endpoint not available (for backwards compatibility)
-        if (response.status === 404) {
-          return { protocol: 'ZK-7', gateway: 'ORBITAL-7', build: 'v1.0.4-beta' };
-        }
-        throw new Error(`Version fetch failed: ${response.statusText}`);
-      }
-      return response.json();
-    } catch (error) {
-      // Return default values on network errors
-      console.warn('Version endpoint not available, using defaults:', error);
-      return { protocol: 'ZK-7', gateway: 'ORBITAL-7', build: 'v1.0.4-beta' };
-    }
-  }
-
-  /**
-   * GET /api/relayers (new endpoint)
-   * Active node info
-   */
-  async getRelayerInfo(): Promise<{ activeNode: string; availableUplinks: number; region: string }> {
-    const response = await fetch(`${this.baseUrl}/api/relayers`);
-    if (!response.ok) {
-      throw new Error(`Relayer info fetch failed: ${response.statusText}`);
-    }
-    return response.json();
-  }
-
-  /**
-   * POST /api/session/init
-   * Initialize control session (no blockchain action)
-   */
+  // Legacy helper kept so older components compile.
   async initSession(): Promise<SessionInitResponse> {
-    const response = await fetch(`${this.baseUrl}/api/session/init`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Session init failed: ${response.statusText}`);
-    }
-    
-    return response.json();
+    return {
+      sessionId: `legacy_${Date.now()}`,
+      active: true,
+    };
   }
 
-  /**
-   * POST /api/intent
-   * Create private intent (Aleo transaction)
-   * 
-   * This is the ONLY way frontend creates execution intent.
-   * Backend handles all EVM transactions.
-   */
-  async createIntent(intent: IntentRequest): Promise<IntentResponse> {
-    const response = await fetch(`${this.baseUrl}/api/intent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(intent),
+  async sendWhatsappOtp(phone: string): Promise<OtpSendResponse> {
+    return this.request<OtpSendResponse>("/api/auth/otp/send", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
     });
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(`Intent creation failed: ${error.message || response.statusText}`);
-    }
-    
-    return response.json();
+  }
+
+  async verifyWhatsappOtp(input: {
+    phone: string;
+    challengeId: string;
+    code: string;
+    pin: string;
+  }): Promise<OtpVerifyResponse> {
+    return this.request<OtpVerifyResponse>("/api/auth/otp/verify", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async createWalletAuthChallenge(address?: string): Promise<WalletAuthChallengeResponse> {
+    return this.request<WalletAuthChallengeResponse>("/api/auth/wallet/challenge", {
+      method: "POST",
+      body: JSON.stringify({ address }),
+    });
+  }
+
+  async verifyWalletAuth(input: {
+    challengeId: string;
+    address: string;
+    signature?: string;
+    signatureBase64?: string;
+  }): Promise<WalletAuthVerifyResponse> {
+    return this.request<WalletAuthVerifyResponse>("/api/auth/wallet/verify", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async getMe(token: string): Promise<any> {
+    return this.request("/api/me", { method: "GET" }, token);
+  }
+
+  async getTokens(): Promise<{ success: boolean; tokens: TokenMetadata[] }> {
+    return this.request("/api/assets/tokens", { method: "GET" });
+  }
+
+  async getBalances(token: string): Promise<{ success: boolean; balances: BalanceItem[] }> {
+    return this.request("/api/assets/balances", { method: "GET" }, token);
+  }
+
+  async getActivity(token: string): Promise<any> {
+    return this.request("/api/assets/activity", { method: "GET" }, token);
+  }
+
+  async getSwapQuote(
+    token: string,
+    input: { tokenIn: string; tokenOut: string; amount: string }
+  ): Promise<any> {
+    return this.request(
+      "/api/swap/quote",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async executeSwap(
+    token: string,
+    input: { quoteId: string; maxSlippageBps?: number; aleoTxId?: string }
+  ): Promise<any> {
+    return this.request(
+      "/api/swap/execute",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async listSwaps(token: string): Promise<any> {
+    return this.request("/api/swaps", { method: "GET" }, token);
+  }
+
+  async getYieldAssets(token: string, tokenId?: string): Promise<YieldAssetsResponse> {
+    const suffix = tokenId ? `?tokenId=${encodeURIComponent(tokenId)}` : "";
+    return this.request(`/api/yield/get_assets${suffix}`, { method: "GET" }, token);
+  }
+
+  async getYieldQuote(
+    token: string,
+    input:
+      | {
+          action: "stake" | "unstake";
+          assetId: string;
+          amount: string;
+        }
+      | {
+          action: "claim";
+          assetId?: string;
+        }
+      | {
+          action: "rebalance";
+          targetWeights: Record<string, number>;
+        }
+  ): Promise<{ success: boolean; quote: YieldQuote }> {
+    return this.request(
+      "/api/yield/get_quote",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async solveYieldQuote(
+    token: string,
+    input: { quoteId: string; aleoTxId?: string }
+  ): Promise<YieldSolveResponse> {
+    return this.request(
+      "/api/yield/solve",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async listYieldQuotes(token: string, limit = 20): Promise<{ success: boolean; quotes: YieldHistoryQuote[] }> {
+    return this.request(`/api/yield/quotes?limit=${Math.max(1, Math.floor(limit))}`, { method: "GET" }, token);
+  }
+
+  async listYieldActions(token: string, limit = 30): Promise<{ success: boolean; actions: YieldHistoryAction[] }> {
+    return this.request(`/api/yield/actions?limit=${Math.max(1, Math.floor(limit))}`, { method: "GET" }, token);
+  }
+
+  async sendPayment(token: string, input: any): Promise<any> {
+    return this.request(
+      "/api/payments/send",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async listPayments(token: string): Promise<any> {
+    return this.request("/api/payments", { method: "GET" }, token);
+  }
+
+  async createInvoice(token: string, input: any): Promise<any> {
+    return this.request(
+      "/api/invoices",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async listInvoices(token: string): Promise<any> {
+    return this.request("/api/invoices", { method: "GET" }, token);
+  }
+
+  async payInvoice(token: string, invoiceId: string, aleoTxId?: string): Promise<any> {
+    return this.request(
+      `/api/invoices/${invoiceId}/pay`,
+      {
+        method: "POST",
+        body: JSON.stringify({ aleoTxId }),
+      },
+      token
+    );
+  }
+
+  async submitRelayTx(
+    token: string,
+    input: { serializedTransaction?: string; aleoTxId?: string; clientTxId?: string }
+  ): Promise<any> {
+    return this.request(
+      "/api/relay/submit",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
+  }
+
+  async listRelaySubmissions(token: string): Promise<any> {
+    return this.request("/api/relay/submissions", { method: "GET" }, token);
+  }
+
+  async getRelayStatus(token: string, txId: string): Promise<any> {
+    return this.request(`/api/relay/status/${txId}`, { method: "GET" }, token);
   }
 }
 
 export const apiClient = new APIClient();
-
