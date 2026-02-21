@@ -35,6 +35,7 @@
   body {
     @apply text-white antialiased;
     font-family: "Space Grotesk", "Sora", "Segoe UI", sans-serif;
+    overflow-x: clip;
     background-image:
       radial-gradient(circle at 15% 15%, rgba(255, 77, 0, 0.12), transparent 35%),
       radial-gradient(circle at 80% 20%, rgba(0, 255, 255, 0.08), transparent 35%),
@@ -61,4 +62,181 @@
 
 @utility studio-panel {
   @apply bg-[#0a0a0a] border border-white/5 shadow-2xl;
+}
+
+@keyframes envelopeFloat {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes envelopePulse {
+
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.55;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes envelopeSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes envelopeSweep {
+  0% {
+    transform: translateX(-130%);
+    opacity: 0;
+  }
+
+  35% {
+    opacity: 0.2;
+  }
+
+  65% {
+    opacity: 0.2;
+  }
+
+  100% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+}
+
+.home-envelope-stage {
+  isolation: isolate;
+}
+
+.home-envelope-aura {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  border-radius: 999px;
+  filter: blur(28px);
+  background:
+    radial-gradient(circle at 25% 30%, rgba(255, 77, 0, 0.25), transparent 55%),
+    radial-gradient(circle at 75% 35%, rgba(0, 255, 255, 0.2), transparent 58%),
+    radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.06), transparent 60%);
+  animation: envelopePulse 5.8s ease-in-out infinite;
+}
+
+.home-envelope-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 86%;
+  height: 86%;
+  z-index: 1;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background:
+    conic-gradient(from 0deg,
+      rgba(255, 77, 0, 0.35),
+      rgba(0, 255, 255, 0.3),
+      rgba(255, 77, 0, 0.35));
+  mask: radial-gradient(circle, transparent 60%, #000 66%);
+  opacity: 0.4;
+  animation: envelopeSpin 14s linear infinite;
+}
+
+.home-envelope-card {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.28));
+  box-shadow:
+    0 28px 60px rgba(0, 0, 0, 0.55),
+    0 0 22px rgba(0, 255, 255, 0.12),
+    0 0 26px rgba(255, 77, 0, 0.12);
+}
+
+.home-envelope-media {
+  position: absolute;
+  inset: 0;
+}
+
+.home-envelope-image {
+  z-index: 3;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  filter: contrast(1.08) brightness(1.05);
+}
+
+.home-envelope-insert-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 14px;
+  opacity: 0.95;
+  filter: contrast(1.08) saturate(1.08) brightness(0.88);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.38);
+}
+
+.home-envelope-float {
+  animation: none;
+}
+
+.home-envelope-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 14px;
+  background: linear-gradient(110deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 70%);
+  mix-blend-mode: screen;
+  animation: envelopeSweep 7.2s ease-in-out infinite;
+}
+
+.home-swap-word-live {
+  display: inline-flex;
+  align-items: baseline;
+  width: 4.2em;
+}
+
+.home-swap-letters {
+  position: relative;
+  width: 4em;
+  height: 1em;
+  display: inline-block;
+}
+
+.home-swap-letter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1em;
+  text-align: center;
+  transition: transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+  text-shadow:
+    0 0 18px rgba(255, 255, 255, 0.12),
+    0 0 26px rgba(255, 77, 0, 0.15);
 }
