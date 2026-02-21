@@ -1,0 +1,9 @@
+{
+  "program": "envelop_identity_v2.aleo",
+  "version": "0.2.0",
+  "description": "On-chain username claims with public hash inputs for deterministic backend verification",
+  "license": "MIT",
+  "leo": "3.4.0",
+  "dependencies": null,
+  "dev_dependencies": null
+}

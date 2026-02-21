@@ -1,11 +1,7 @@
-import crypto from "crypto";
 import appDb from "../../storage/app.db.js";
 import { sendJson, readJsonBody } from "../http.js";
 import { requireAuth } from "../auth.helpers.js";
-
-function fakeAleoTxId() {
-  return `at1${crypto.randomBytes(28).toString("hex")}`;
-}
+import { fetchAleoTxStatus } from "../../services/aleo.tx.service.js";
 
 export async function submitRelay(req, res) {
   const auth = requireAuth(req);
@@ -64,12 +60,17 @@ export async function submitRelay(req, res) {
           status = "failed";
           txId = null;
         } else {
-          txId = responsePayload.transactionId || responsePayload.tx_id || responsePayload.id || fakeAleoTxId();
+          txId = responsePayload.transactionId || responsePayload.tx_id || responsePayload.id || null;
+          if (!txId) {
+            status = "failed";
+          }
         }
       } else {
-        mode = "mock_submit";
-        txId = fakeAleoTxId();
-        responsePayload = { note: "No ALEO_RELAY_SUBMIT_URL configured. Returned mock tx id." };
+        return sendJson(res, 503, {
+          success: false,
+          error:
+            "ALEO_RELAY_SUBMIT_URL is not configured. Provide aleoTxId or configure relay submit URL.",
+        });
       }
     }
 
@@ -89,10 +90,7 @@ export async function submitRelay(req, res) {
       status: submission.status,
       mode: submission.mode,
       aleoTxId: submission.aleo_tx_id,
-      note:
-        mode === "mock_submit"
-          ? "Blind relayer accepted tx bytes but returned mock tx id (no submit URL configured)."
-          : "Blind relayer accepted request.",
+      note: "Blind relayer accepted request.",
     });
   } catch (error) {
     sendJson(res, 400, { success: false, error: error.message });
@@ -116,52 +114,34 @@ export async function getRelayStatus(req, res, txId) {
   if (!auth.ok) {
     return sendJson(res, auth.statusCode, { success: false, error: auth.error });
   }
-  if (!txId || !txId.startsWith("at1")) {
-    return sendJson(res, 400, { success: false, error: "Invalid Aleo transaction ID" });
-  }
-
-  const explicit = process.env.ALEO_RELAY_STATUS_URL
-    ? process.env.ALEO_RELAY_STATUS_URL.replace(/\/+$/, "")
-    : null;
-
-  const candidates = [
-    explicit ? `${explicit}/${txId}` : null,
-    `https://api.explorer.provable.com/v2/testnet/transaction/${txId}`,
-    `https://api.explorer.provable.com/v1/testnet/transaction/${txId}`,
-  ].filter(Boolean);
-
-  let lastError = null;
-  for (const url of candidates) {
-    try {
-      const response = await fetch(url, { method: "GET" });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        lastError = payload?.message || payload?.error || `${response.status} ${response.statusText}`;
-        continue;
-      }
-
-      const normalizedStatus =
-        payload?.status ||
-        payload?.type ||
-        payload?.state ||
-        payload?.transaction?.status ||
-        "unknown";
-
+  try {
+    const status = await fetchAleoTxStatus(txId);
+    return sendJson(res, 200, {
+      success: true,
+      txId,
+      status: status.rawStatus.toLowerCase(),
+      txState: status.txState,
+      source: status.source,
+      raw: status.raw,
+    });
+  } catch (error) {
+    if (error?.txState === "pending" || error?.txState === "unknown" || error?.statusCode === 409) {
       return sendJson(res, 200, {
         success: true,
         txId,
-        status: String(normalizedStatus).toLowerCase(),
-        source: url,
-        raw: payload,
+        status: String(error?.rawStatus || "pending").toLowerCase(),
+        txState: error?.txState || "pending",
+        source: error?.source || null,
+        raw: null,
+        note: error?.message || "Transaction is still indexing/confirming.",
       });
-    } catch (error) {
-      lastError = error.message;
     }
+    return sendJson(res, error?.statusCode || 502, {
+      success: false,
+      error: error.message || "Unable to fetch relay status",
+      txId,
+      ...(error?.txState ? { txState: error.txState } : {}),
+      ...(error?.rawStatus ? { status: error.rawStatus } : {}),
+    });
   }
-
-  return sendJson(res, 502, {
-    success: false,
-    error: lastError || "Unable to fetch relay status",
-    txId,
-  });
 }

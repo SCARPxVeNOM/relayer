@@ -1,0 +1,9 @@
+{
+  "program": "envelop_identity.aleo",
+  "version": "0.1.0",
+  "description": "On-chain username claims for wallet identity routing in Envelop",
+  "license": "MIT",
+  "leo": "3.4.0",
+  "dependencies": null,
+  "dev_dependencies": null
+}

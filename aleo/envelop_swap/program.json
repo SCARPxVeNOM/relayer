@@ -1,10 +1,9 @@
 {
   "program": "envelop_swap.aleo",
   "version": "0.1.0",
-  "description": "Private swap intent and settlement receipts for Envelop",
+  "description": "Private swap intents with on-chain pool and balance accounting transitions for Envelop",
   "license": "MIT",
   "leo": "3.4.0",
   "dependencies": null,
   "dev_dependencies": null
 }
-

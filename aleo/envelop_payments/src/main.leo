@@ -12,6 +12,12 @@ program envelop_payments.aleo {
         nonce: u64,
     }
 
+    record TokenBalance {
+        owner: address,
+        token_id: field,
+        amount: u64,
+    }
+
     record PaymentReceipt {
         owner: address,
         sender: address,
@@ -41,6 +47,48 @@ program envelop_payments.aleo {
         };
     }
 
+    transition mint_balance(token_id: field, amount: u64) -> TokenBalance {
+        assert(amount > 0u64);
+        return TokenBalance {
+            owner: self.signer,
+            token_id: token_id,
+            amount: amount,
+        };
+    }
+
+    transition settle_payment_onchain(
+        intent: PaymentIntent,
+        sender_balance: TokenBalance,
+        recipient_balance: TokenBalance,
+        payment_id: field,
+        settled_at: u64
+    ) -> (TokenBalance, TokenBalance, PaymentReceipt) {
+        assert(sender_balance.owner == intent.sender);
+        assert(sender_balance.token_id == intent.token_id);
+        assert(recipient_balance.token_id == intent.token_id);
+        assert(sender_balance.amount >= intent.amount);
+
+        let updated_sender = TokenBalance {
+            owner: sender_balance.owner,
+            token_id: sender_balance.token_id,
+            amount: sender_balance.amount - intent.amount,
+        };
+        let updated_recipient = TokenBalance {
+            owner: recipient_balance.owner,
+            token_id: recipient_balance.token_id,
+            amount: recipient_balance.amount + intent.amount,
+        };
+        let receipt = PaymentReceipt {
+            owner: intent.sender,
+            sender: intent.sender,
+            token_id: intent.token_id,
+            amount: intent.amount,
+            payment_id: payment_id,
+            settled_at: settled_at,
+        };
+        return (updated_sender, updated_recipient, receipt);
+    }
+
     transition settle_payment(
         intent: PaymentIntent,
         payment_id: field,
@@ -61,4 +109,3 @@ program envelop_payments.aleo {
         return intent.sender;
     }
 }
-

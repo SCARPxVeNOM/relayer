@@ -8,11 +8,6 @@ export interface HealthResponse {
   service?: string;
 }
 
-export interface SessionInitResponse {
-  sessionId: string;
-  active: boolean;
-}
-
 export interface OtpSendResponse {
   success: boolean;
   challengeId: string;
@@ -20,7 +15,6 @@ export interface OtpSendResponse {
   channel: "whatsapp";
   provider: string;
   expiresInSec: number;
-  devCode?: string;
 }
 
 export interface OtpVerifyResponse {
@@ -31,6 +25,10 @@ export interface OtpVerifyResponse {
     id: number;
     phone: string;
     walletAddress: string;
+    username?: string | null;
+    displayName?: string | null;
+    usernameClaimTxId?: string | null;
+    usernameClaimedAt?: number | null;
   };
   wallet: {
     address: string;
@@ -58,10 +56,80 @@ export interface WalletAuthVerifyResponse {
     id: number;
     phone: string;
     walletAddress: string;
+    username?: string | null;
+    displayName?: string | null;
+    usernameClaimTxId?: string | null;
+    usernameClaimedAt?: number | null;
   };
   wallet: {
     address: string;
     createdNow: boolean;
+  };
+}
+
+export interface PasskeyRegisterOptionsResponse {
+  success: boolean;
+  challengeId: string;
+  username: string;
+  options: any;
+}
+
+export interface PasskeyLoginOptionsResponse {
+  success: boolean;
+  challengeId: string;
+  username?: string;
+  options: any;
+}
+
+export interface PasskeyVerifyResponse {
+  success: boolean;
+  token: string;
+  expiresAt: number;
+  authMethod: "passkey";
+  user: {
+    id: number;
+    phone: string;
+    walletAddress: string;
+    username?: string | null;
+    displayName?: string | null;
+    usernameClaimTxId?: string | null;
+    usernameClaimedAt?: number | null;
+  };
+  wallet: {
+    address: string;
+    createdNow: boolean;
+  };
+}
+
+export interface MeResponse {
+  success: boolean;
+  user: {
+    id: number;
+    phone: string;
+    walletAddress: string;
+    username?: string | null;
+    displayName?: string | null;
+    usernameClaimTxId?: string | null;
+    usernameClaimedAt?: number | null;
+  };
+}
+
+export interface ProfileUpsertResponse {
+  success: boolean;
+  user: {
+    id: number;
+    phone: string;
+    walletAddress: string;
+    username?: string | null;
+    displayName?: string | null;
+    usernameClaimTxId?: string | null;
+    usernameClaimedAt?: number | null;
+  };
+  claim?: {
+    txId: string;
+    programId: string;
+    functionName: string;
+    feePayerAddress: string;
   };
 }
 
@@ -270,14 +338,6 @@ class APIClient {
     return this.request("/api/relayers", { method: "GET" });
   }
 
-  // Legacy helper kept so older components compile.
-  async initSession(): Promise<SessionInitResponse> {
-    return {
-      sessionId: `legacy_${Date.now()}`,
-      active: true,
-    };
-  }
-
   async sendWhatsappOtp(phone: string): Promise<OtpSendResponse> {
     return this.request<OtpSendResponse>("/api/auth/otp/send", {
       method: "POST",
@@ -316,20 +376,119 @@ class APIClient {
     });
   }
 
-  async getMe(token: string): Promise<any> {
-    return this.request("/api/me", { method: "GET" }, token);
+  async createPasskeyRegistrationOptions(input: {
+    username: string;
+    displayName?: string;
+    origin?: string;
+    rpId?: string;
+  }): Promise<PasskeyRegisterOptionsResponse> {
+    return this.request<PasskeyRegisterOptionsResponse>("/api/auth/passkey/register/options", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async verifyPasskeyRegistration(input: {
+    challengeId: string;
+    username: string;
+    pin: string;
+    credential: unknown;
+    origin?: string;
+    rpId?: string;
+  }): Promise<PasskeyVerifyResponse> {
+    return this.request<PasskeyVerifyResponse>("/api/auth/passkey/register/verify", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async createPasskeyLoginOptions(input: {
+    username?: string;
+    origin?: string;
+    rpId?: string;
+  }): Promise<PasskeyLoginOptionsResponse> {
+    return this.request<PasskeyLoginOptionsResponse>("/api/auth/passkey/login/options", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async verifyPasskeyLogin(input: {
+    challengeId: string;
+    username?: string;
+    credential: unknown;
+    origin?: string;
+    rpId?: string;
+  }): Promise<PasskeyVerifyResponse> {
+    return this.request<PasskeyVerifyResponse>("/api/auth/passkey/login/verify", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async getMe(token: string): Promise<MeResponse> {
+    return this.request<MeResponse>("/api/me", { method: "GET" }, token);
+  }
+
+  async upsertProfile(
+    token: string,
+    input: { username: string; displayName?: string; usernameClaimTxId: string }
+  ): Promise<ProfileUpsertResponse> {
+    return this.request<ProfileUpsertResponse>(
+      "/api/me/profile",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      token
+    );
   }
 
   async getTokens(): Promise<{ success: boolean; tokens: TokenMetadata[] }> {
     return this.request("/api/assets/tokens", { method: "GET" });
   }
 
-  async getBalances(token: string): Promise<{ success: boolean; balances: BalanceItem[] }> {
+  async getBalances(token: string): Promise<{
+    success: boolean;
+    balances: BalanceItem[];
+    ledgerMode?: "onchain_canonical" | "backend_simulated";
+    note?: string;
+  }> {
     return this.request("/api/assets/balances", { method: "GET" }, token);
   }
 
   async getActivity(token: string): Promise<any> {
     return this.request("/api/assets/activity", { method: "GET" }, token);
+  }
+
+  async resolveRecipientByPhone(
+    token: string,
+    phone: string
+  ): Promise<{
+    success: boolean;
+    phone: string;
+    username?: string | null;
+    displayName?: string | null;
+    walletAddress: string;
+    userId: number | null;
+  }> {
+    const query = encodeURIComponent(phone);
+    return this.request(`/api/contacts/resolve?phone=${query}`, { method: "GET" }, token);
+  }
+
+  async resolveRecipientByUsername(
+    token: string,
+    username: string
+  ): Promise<{
+    success: boolean;
+    username: string;
+    displayName?: string | null;
+    walletAddress: string;
+    userId: number | null;
+    source?: "onchain_claim" | "legacy_user_db";
+  }> {
+    const query = encodeURIComponent(username);
+    return this.request(`/api/contacts/resolve?username=${query}`, { method: "GET" }, token);
   }
 
   async getSwapQuote(
@@ -398,7 +557,7 @@ class APIClient {
 
   async solveYieldQuote(
     token: string,
-    input: { quoteId: string; aleoTxId?: string }
+    input: { quoteId: string; aleoTxId?: string; aleoTxIds?: string[] }
   ): Promise<YieldSolveResponse> {
     return this.request(
       "/api/yield/solve",

@@ -4,6 +4,8 @@ import { requireAuth } from "../auth.helpers.js";
 import { getTokenById } from "../../services/assets.catalog.js";
 import { parseAmountToAtomic, formatAtomicToDecimal } from "../../utils/amounts.js";
 import { buildSwapQuote, executeSwap } from "../../services/swap.service.js";
+import { verifySwapExecutionTx } from "../../services/aleo.feature.tx.service.js";
+import { isOnchainLedgerMode } from "../../services/onchain.mode.service.js";
 
 export async function getSwapQuote(req, res) {
   const auth = requireAuth(req);
@@ -41,6 +43,7 @@ export async function getSwapQuote(req, res) {
       amountInAtomic,
       userId: auth.user.id,
     });
+    const onchainLedger = isOnchainLedgerMode();
 
     sendJson(res, 200, {
       success: true,
@@ -56,6 +59,7 @@ export async function getSwapQuote(req, res) {
         feeBps: quote.fee_bps,
         expiresAt: quote.expires_at,
       },
+      ledgerMode: onchainLedger ? "onchain_canonical" : "backend_simulated",
     });
   } catch (error) {
     sendJson(res, 400, { success: false, error: error.message });
@@ -77,6 +81,9 @@ export async function postSwapExecute(req, res) {
     if (!quoteId) {
       return sendJson(res, 400, { success: false, error: "quoteId is required" });
     }
+    if (!aleoTxId) {
+      return sendJson(res, 400, { success: false, error: "aleoTxId is required for on-chain-confirmed settlement" });
+    }
 
     const quote = appDb.getSwapQuoteById(quoteId);
     if (!quote || quote.user_id !== auth.user.id) {
@@ -86,12 +93,30 @@ export async function postSwapExecute(req, res) {
       return sendJson(res, 400, { success: false, error: "Quote expired" });
     }
 
-    const swap = executeSwap({
-      userId: auth.user.id,
-      quote,
-      maxSlippageBps,
-      aleoTxId,
+    const verification = await verifySwapExecutionTx({
+      txId: aleoTxId,
+      walletAddress: auth.user.wallet_address,
     });
+
+    const onchainLedger = isOnchainLedgerMode();
+    const swap = onchainLedger
+      ? appDb.createSwap({
+          userId: auth.user.id,
+          quoteId: quote.id,
+          tokenIn: quote.token_in,
+          tokenOut: quote.token_out,
+          amountInAtomic: BigInt(quote.amount_in_atomic),
+          amountOutAtomic: BigInt(quote.amount_out_atomic),
+          rate: quote.rate,
+          feeBps: quote.fee_bps,
+          aleoTxId,
+        })
+      : executeSwap({
+          userId: auth.user.id,
+          quote,
+          maxSlippageBps,
+          aleoTxId,
+        });
 
     sendJson(res, 200, {
       success: true,
@@ -104,13 +129,21 @@ export async function postSwapExecute(req, res) {
         rate: swap.rate,
         feeBps: swap.fee_bps,
         aleoTxId: swap.aleo_tx_id,
+        txProgramId: verification?.matchedTransition?.programId || null,
+        txFunctionName: verification?.matchedTransition?.functionName || null,
         status: swap.status,
         createdAt: swap.created_at,
       },
-      balances: appDb.listBalances(auth.user.id),
+      balances: onchainLedger ? [] : appDb.listBalances(auth.user.id),
+      ledgerMode: onchainLedger ? "onchain_canonical" : "backend_simulated",
     });
   } catch (error) {
-    sendJson(res, 400, { success: false, error: error.message });
+    sendJson(res, error?.statusCode || 400, {
+      success: false,
+      error: error.message,
+      ...(error?.txState ? { txState: error.txState } : {}),
+      ...(error?.rawStatus ? { txStatus: error.rawStatus } : {}),
+    });
   }
 }
 
@@ -124,4 +157,3 @@ export async function listSwaps(req, res) {
     swaps: appDb.listSwaps(auth.user.id),
   });
 }
-

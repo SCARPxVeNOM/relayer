@@ -1,10 +1,9 @@
 {
   "program": "envelop_payments.aleo",
   "version": "0.1.0",
-  "description": "Private payment intents and receipts for Envelop",
+  "description": "Private payment intents with on-chain sender/recipient balance settlement transitions for Envelop",
   "license": "MIT",
   "leo": "3.4.0",
   "dependencies": null,
   "dev_dependencies": null
 }
-

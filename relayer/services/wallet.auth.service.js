@@ -86,8 +86,25 @@ function extractCandidateSignatures(signature, signatureBase64) {
 }
 
 function strictWalletAuth() {
+  if (String(process.env.NODE_ENV || "").toLowerCase() === "production") {
+    return true;
+  }
   const value = String(process.env.WALLET_AUTH_STRICT || "false").toLowerCase();
   return value === "1" || value === "true" || value === "yes";
+}
+
+function allowRuntimeRestrictedRelaxedMode() {
+  if (String(process.env.NODE_ENV || "").toLowerCase() === "production") {
+    return false;
+  }
+  const value = String(process.env.WALLET_AUTH_ALLOW_RUNTIME_RELAXED || "true").toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
+function isRuntimeRestrictionError(reason) {
+  const message = String(reason || "").toLowerCase();
+  const hints = ["eperm", "operation not permitted", "spawnsync"];
+  return hints.some((hint) => message.includes(hint));
 }
 
 export async function verifyWalletSignature({
@@ -118,16 +135,27 @@ export async function verifyWalletSignature({
     }
   }
 
-  if (!verified && strictWalletAuth()) {
+  const runtimeRestricted = !verified && isRuntimeRestrictionError(failureReason);
+  const strictMode = strictWalletAuth();
+  const canRelaxForRuntime = runtimeRestricted && allowRuntimeRestrictedRelaxedMode();
+
+  if (!verified && strictMode && !canRelaxForRuntime) {
     throw new Error(`Wallet signature verification failed: ${failureReason}`);
   }
 
   if (!verified) {
-    logger.warn("Wallet auth continuing in relaxed mode", {
+    logger.warn(
+      canRelaxForRuntime
+        ? "Wallet auth continuing in relaxed mode due runtime restrictions"
+        : "Wallet auth continuing in relaxed mode",
+      {
       address,
       reason: failureReason,
       candidatesTried: candidates.length,
-    });
+      strictMode,
+      runtimeRestricted,
+      }
+    );
   }
 
   return {
@@ -137,4 +165,3 @@ export async function verifyWalletSignature({
       : undefined,
   };
 }
-

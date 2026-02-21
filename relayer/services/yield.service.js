@@ -1,6 +1,7 @@
 import appDb from "../storage/app.db.js";
 import { getTokenById } from "./assets.catalog.js";
 import { getYieldAssetById, listYieldAssetsByToken } from "./yield.catalog.js";
+import { isOnchainLedgerMode } from "./onchain.mode.service.js";
 
 const BPS_DENOM = 10_000n;
 const YEAR_SECONDS = 365n * 24n * 60n * 60n;
@@ -397,6 +398,7 @@ export function getYieldAssets({ userId, tokenId }) {
 
 export function buildYieldQuote({ userId, intent }) {
   const action = normalizeAction(intent.action);
+  const onchainLedger = isOnchainLedgerMode();
   syncYieldAccrual(userId);
 
   let plan;
@@ -408,9 +410,11 @@ export function buildYieldQuote({ userId, intent }) {
     const amountAtomic = BigInt(intent.amountAtomic);
     ensurePositiveAmount(amountAtomic);
 
-    const userBalance = appDb.getBalanceAtomic(userId, asset.tokenId);
-    if (userBalance < amountAtomic) {
-      throw new Error(`Insufficient ${asset.tokenId} balance`);
+    if (!onchainLedger) {
+      const userBalance = appDb.getBalanceAtomic(userId, asset.tokenId);
+      if (userBalance < amountAtomic) {
+        throw new Error(`Insufficient ${asset.tokenId} balance`);
+      }
     }
     plan = buildStakePlan({ asset, amountAtomic });
   } else if (action === "unstake") {
@@ -421,10 +425,12 @@ export function buildYieldQuote({ userId, intent }) {
     const amountAtomic = BigInt(intent.amountAtomic);
     ensurePositiveAmount(amountAtomic);
 
-    const position = appDb.getYieldPosition(userId, asset.id);
-    const staked = position ? BigInt(position.staked_atomic) : 0n;
-    if (staked < amountAtomic) {
-      throw new Error("Unstake amount exceeds current staked balance");
+    if (!onchainLedger) {
+      const position = appDb.getYieldPosition(userId, asset.id);
+      const staked = position ? BigInt(position.staked_atomic) : 0n;
+      if (staked < amountAtomic) {
+        throw new Error("Unstake amount exceeds current staked balance");
+      }
     }
     plan = buildUnstakePlan({ asset, amountAtomic });
   } else if (action === "claim") {
@@ -432,10 +438,39 @@ export function buildYieldQuote({ userId, intent }) {
     if (intent.assetId) {
       claimRows = claimRows.filter((row) => row.asset_id === intent.assetId);
     }
-    if (claimRows.length === 0) {
+    if (claimRows.length === 0 && !onchainLedger) {
       throw new Error("No claimable rewards for selected asset(s)");
     }
-    plan = buildClaimPlan({ claimRows });
+    if (claimRows.length > 0) {
+      plan = buildClaimPlan({ claimRows });
+    } else {
+      const asset = intent.assetId ? getYieldAssetById(intent.assetId) : null;
+      if (!asset) {
+        throw new Error("For on-chain claim quoting without local state, assetId is required");
+      }
+      const nonce = BigInt(nowMs());
+      plan = {
+        action: "claim",
+        steps: [
+          {
+            type: "claim",
+            assetId: asset.id,
+            tokenId: asset.tokenId,
+            rewardTokenId: asset.rewardTokenId,
+            amountAtomic: "0",
+          },
+        ],
+        transitions: [
+          makeTransition("claim", [
+            asset.strategyField,
+            tokenToField(asset.rewardTokenId),
+            toU64Literal(0n),
+            toU64Literal(Math.floor(nowMs() / 1000)),
+            toU64Literal(nonce),
+          ]),
+        ],
+      };
+    }
   } else if (action === "rebalance") {
     plan = buildRebalancePlan({
       userId,
@@ -577,4 +612,3 @@ export function solveYieldQuote({ userId, quote, aleoTxId }) {
     balances: appDb.listBalances(userId),
   };
 }
-

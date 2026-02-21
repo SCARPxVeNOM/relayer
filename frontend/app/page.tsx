@@ -15,7 +15,7 @@ export default function HomePage() {
           </h1>
           <p className="text-sm md:text-base text-white/70 max-w-xl">
             Envelop is an Aleo-native private asset manager with token swaps,
-            invoice payments, and mobile onboarding using WhatsApp OTP.
+            invoice payments, and easy onboarding via passkey + PIN (with OTP fallback).
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -33,7 +33,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="border border-white/10 bg-black/50 p-6 md:p-8 space-y-4">
+        <section className="border border-white/10 bg-black/78 backdrop-blur-sm p-6 md:p-8 space-y-4">
           <h2 className="text-xl font-black uppercase tracking-wide">What is private?</h2>
           <ul className="space-y-3 text-sm text-white/75">
             <li>Shielded wallet binding with encrypted key material</li>

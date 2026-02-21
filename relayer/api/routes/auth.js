@@ -2,6 +2,7 @@ import appDb from "../../storage/app.db.js";
 import { sendJson, readJsonBody } from "../http.js";
 import { getOrCreateBoundWallet } from "../../services/wallet.binding.service.js";
 import { normalizePhone, sendOtp, verifyOtp } from "../../services/otp.service.js";
+import { hydrateUserIdentityFromClaim } from "../../services/identity.directory.service.js";
 import {
   createWalletAuthChallenge,
   normalizeAleoAddress,
@@ -9,6 +10,18 @@ import {
 } from "../../services/wallet.auth.service.js";
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
+
+function formatUserForResponse(user) {
+  return {
+    id: user.id,
+    phone: user.phone,
+    walletAddress: user.wallet_address,
+    username: user.username || null,
+    displayName: user.display_name || null,
+    usernameClaimTxId: user.username_claim_tx_id || null,
+    usernameClaimedAt: user.username_claimed_at || null,
+  };
+}
 
 export async function sendOtpCode(req, res) {
   try {
@@ -31,7 +44,6 @@ export async function sendOtpCode(req, res) {
       channel: "whatsapp",
       provider: otp.provider,
       expiresInSec: Math.floor(OTP_EXPIRY_MS / 1000),
-      ...(otp.devCode ? { devCode: otp.devCode } : {}),
     });
   } catch (error) {
     sendJson(res, 400, { success: false, error: error.message });
@@ -78,17 +90,13 @@ export async function verifyOtpCode(req, res) {
     const wallet = await getOrCreateBoundWallet(user.id, pin);
     const session = appDb.createAuthSession(user.id);
 
-    const updatedUser = appDb.getUserById(user.id);
+    const updatedUser = hydrateUserIdentityFromClaim(appDb.getUserById(user.id));
 
     sendJson(res, 200, {
       success: true,
       token: session.token,
       expiresAt: session.expiresAt,
-      user: {
-        id: updatedUser.id,
-        phone: updatedUser.phone,
-        walletAddress: updatedUser.wallet_address,
-      },
+      user: formatUserForResponse(updatedUser),
       wallet: {
         address: wallet.address,
         createdNow: wallet.created,
@@ -193,9 +201,8 @@ export async function verifyWalletChallenge(req, res) {
 
     const existed = !!appDb.getUserByAddress(address);
     const user = appDb.createOrGetUserByWalletAddress(address);
-    appDb.ensureInitialBalances(user.id);
     const session = appDb.createAuthSession(user.id);
-    const updatedUser = appDb.getUserById(user.id);
+    const updatedUser = hydrateUserIdentityFromClaim(appDb.getUserById(user.id));
 
     sendJson(res, 200, {
       success: true,
@@ -204,11 +211,7 @@ export async function verifyWalletChallenge(req, res) {
       authMethod: "wallet",
       signatureVerified: verification.verified,
       ...(verification.warning ? { warning: verification.warning } : {}),
-      user: {
-        id: updatedUser.id,
-        phone: updatedUser.phone,
-        walletAddress: updatedUser.wallet_address,
-      },
+      user: formatUserForResponse(updatedUser),
       wallet: {
         address,
         createdNow: !existed,

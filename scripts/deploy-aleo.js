@@ -16,6 +16,7 @@ const programs = [
   "aleo/envelop_invoice",
   "aleo/envelop_payments",
   "aleo/envelop_yield",
+  "aleo/envelop_identity_v2",
 ];
 
 function run(cmd) {

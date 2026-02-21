@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -14,6 +14,7 @@
     "@demox-labs/aleo-wallet-adapter-react": "^0.0.22",
     "@demox-labs/aleo-wallet-adapter-reactui": "^0.0.36",
     "autoprefixer": "^10.4.23",
+    "envelop-aleo-fintech": "file:..",
     "gsap": "^3.14.2",
     "lucide-react": "^0.562.0",
     "next": "^16.1.4",

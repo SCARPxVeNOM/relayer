@@ -8,7 +8,13 @@ import {
   createWalletChallenge,
   verifyWalletChallenge,
 } from "./routes/auth.js";
-import { getMe, listSupportedTokens, getBalances, getActivity } from "./routes/assets.js";
+import {
+  createPasskeyRegistrationOptions,
+  verifyPasskeyRegistration,
+  createPasskeyLoginOptions,
+  verifyPasskeyLogin,
+} from "./routes/passkey.js";
+import { getMe, updateMyProfile, listSupportedTokens, getBalances, getActivity } from "./routes/assets.js";
 import { getSwapQuote, postSwapExecute, listSwaps } from "./routes/swap.js";
 import { sendPayment, listPayments } from "./routes/payments.js";
 import { createInvoice, listInvoices, payInvoice } from "./routes/invoices.js";
@@ -20,6 +26,9 @@ import {
   listYieldActions,
 } from "./routes/yield.js";
 import { submitRelay, listRelaySubmissions, getRelayStatus } from "./routes/relay.js";
+import { resolveRecipientContact } from "./routes/contacts.js";
+import { isOnchainLedgerMode } from "../services/onchain.mode.service.js";
+import { getAleoFeatureTxPolicy } from "../services/aleo.feature.tx.service.js";
 
 const logger = createLogger("AleoFintechAPI");
 
@@ -30,14 +39,33 @@ function uptimeInfo() {
   };
 }
 
-function telemetryStub() {
+function runtimeTelemetry() {
+  const nodeEnv = String(process.env.NODE_ENV || "development");
+  const otpProvider = String(process.env.OTP_PROVIDER || "unset");
+  const relayConfigured = Boolean(process.env.ALEO_RELAY_SUBMIT_URL);
+  const network = String(process.env.ALEO_NETWORK || "testnet");
   return {
-    bridgeLink: "STABLE",
-    encryptionEngine: "LOCKED",
-    networkOrientation: [1, 1, 1, 1, 0],
-    zkSystemStatus: "Aleo shielded records active",
     mode: "aleo-native",
+    environment: nodeEnv,
+    network,
+    otpProvider,
+    relaySubmitConfigured: relayConfigured,
+    walletAuthStrict: String(process.env.WALLET_AUTH_STRICT || "false"),
+    uptimeSec: Math.floor(process.uptime()),
   };
+}
+
+function configuredAleoPrograms() {
+  const programs = [
+    process.env.ALEO_SWAP_PROGRAM_ID,
+    process.env.ALEO_INVOICE_PROGRAM_ID,
+    process.env.ALEO_PAYMENTS_PROGRAM_ID,
+    process.env.ALEO_YIELD_PROGRAM_ID,
+    process.env.ALEO_IDENTITY_PROGRAM_ID,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(programs));
 }
 
 class HealthAPI {
@@ -67,43 +95,57 @@ class HealthAPI {
       });
     }
 
-    // Backward compatible telemetry endpoints used by existing UI widgets.
+    // Backward compatible telemetry endpoints.
     if (method === "GET" && pathname === "/api/telemetry") {
-      return sendJson(res, 200, telemetryStub());
+      return sendJson(res, 200, runtimeTelemetry());
     }
     if (method === "GET" && pathname === "/api/latency") {
-      return sendJson(res, 200, { value: 22, unit: "ms", status: "SECURED" });
+      return sendJson(res, 200, {
+        status: "ok",
+        serverTime: Date.now(),
+      });
     }
     if (method === "GET" && pathname === "/api/heartbeat") {
-      return sendJson(res, 200, { pulseRate: "NORMAL", activity: 2, timestamp: Date.now() });
+      return sendJson(res, 200, {
+        status: "alive",
+        timestamp: Date.now(),
+        uptimeSec: Math.floor(process.uptime()),
+      });
     }
     if (method === "GET" && pathname === "/api/chains") {
+      const configuredNetwork = String(process.env.ALEO_NETWORK || "").trim();
+      const network = configuredNetwork || "testnet";
       return sendJson(res, 200, {
-        linkStatus: "ALEO_NATIVE",
-        chains: [{ id: "aleo-testnet", status: "active" }],
+        linkStatus: configuredNetwork ? "configured" : "defaulted",
+        chains: [{ id: `aleo-${network}`, status: configuredNetwork ? "configured" : "defaulted" }],
       });
     }
     if (method === "GET" && pathname === "/api/aleo/status") {
+      const onchainLedger = isOnchainLedgerMode();
+      const txPolicy = getAleoFeatureTxPolicy();
+      const programs = configuredAleoPrograms();
       return sendJson(res, 200, {
         status: "active",
-        program:
-          process.env.ALEO_PROGRAM_ID ||
-          "envelop_swap.aleo + envelop_invoice.aleo + envelop_payments.aleo + envelop_yield.aleo",
+        program: programs.length > 0 ? programs.join(", ") : null,
         zkProof: "enabled",
+        ledgerMode: onchainLedger ? "onchain_canonical" : "backend_simulated",
+        txPolicy,
       });
     }
     if (method === "GET" && pathname === "/api/version") {
       return sendJson(res, 200, {
-        protocol: "ENVELOP-2",
-        gateway: "ALEO_FINTECH_CORE",
-        build: process.env.npm_package_version || "1.0.0",
+        service: "envelop-aleo-fintech",
+        release: process.env.RELEASE_TAG || process.env.npm_package_version || "dev",
+        build: process.env.BUILD_ID || process.env.npm_package_version || "dev",
+        commit: process.env.GIT_COMMIT_SHA || null,
       });
     }
     if (method === "GET" && pathname === "/api/relayers") {
+      const relaySubmitUrl = String(process.env.ALEO_RELAY_SUBMIT_URL || "").trim() || null;
       return sendJson(res, 200, {
-        activeNode: "BLIND_RELAYER_ALEO_01",
-        availableUplinks: 1,
-        region: process.env.RELAYER_REGION || "us-central",
+        mode: relaySubmitUrl ? "network_submit" : "client_txid_only",
+        relaySubmitUrl,
+        region: String(process.env.RELAYER_REGION || "").trim() || null,
       });
     }
 
@@ -120,10 +162,25 @@ class HealthAPI {
     if (method === "POST" && pathname === "/api/auth/wallet/verify") {
       return verifyWalletChallenge(req, res);
     }
+    if (method === "POST" && pathname === "/api/auth/passkey/register/options") {
+      return createPasskeyRegistrationOptions(req, res);
+    }
+    if (method === "POST" && pathname === "/api/auth/passkey/register/verify") {
+      return verifyPasskeyRegistration(req, res);
+    }
+    if (method === "POST" && pathname === "/api/auth/passkey/login/options") {
+      return createPasskeyLoginOptions(req, res);
+    }
+    if (method === "POST" && pathname === "/api/auth/passkey/login/verify") {
+      return verifyPasskeyLogin(req, res);
+    }
 
     // Wallet + assets
     if (method === "GET" && pathname === "/api/me") {
       return getMe(req, res);
+    }
+    if (method === "POST" && pathname === "/api/me/profile") {
+      return updateMyProfile(req, res);
     }
     if (method === "GET" && pathname === "/api/assets/tokens") {
       return listSupportedTokens(req, res);
@@ -133,6 +190,9 @@ class HealthAPI {
     }
     if (method === "GET" && pathname === "/api/assets/activity") {
       return getActivity(req, res);
+    }
+    if (method === "GET" && pathname === "/api/contacts/resolve") {
+      return resolveRecipientContact(req, res, url);
     }
 
     // Swap

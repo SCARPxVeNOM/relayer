@@ -1,8 +1,3 @@
-import crypto from "crypto";
-import { createLogger } from "../utils/logger.js";
-
-const logger = createLogger("OTPService");
-
 function isLikelyUSNumber(phoneDigits) {
   return phoneDigits.length === 10;
 }
@@ -30,19 +25,13 @@ export function normalizePhone(input) {
 }
 
 function otpProvider() {
-  const provider = process.env.OTP_PROVIDER || "mock";
+  const provider = String(process.env.OTP_PROVIDER || "").toLowerCase();
   if (provider === "twilio_verify") {
     return "twilio_verify";
   }
-  return "mock";
-}
-
-function makeCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function hashCode(code) {
-  return crypto.createHash("sha256").update(code).digest("hex");
+  throw new Error(
+    "OTP provider is not configured. Set OTP_PROVIDER=twilio_verify with Twilio Verify credentials."
+  );
 }
 
 async function twilioVerifySend(phone) {
@@ -117,25 +106,12 @@ async function twilioVerifyCheck(phone, code) {
 
 export async function sendOtp({ phone }) {
   const provider = otpProvider();
-  if (provider === "twilio_verify") {
-    const result = await twilioVerifySend(phone);
-    return {
-      provider,
-      providerSid: result.sid,
-      codeHash: null,
-      devCode: null,
-      metadata: { status: result.status, channel: result.channel },
-    };
-  }
-
-  const code = makeCode();
-  logger.warn("Using mock OTP provider", { phone, code });
+  const result = await twilioVerifySend(phone);
   return {
-    provider: "mock",
-    providerSid: null,
-    codeHash: hashCode(code),
-    devCode: code,
-    metadata: { mode: "mock" },
+    provider,
+    providerSid: result.sid,
+    codeHash: null,
+    metadata: { status: result.status, channel: result.channel },
   };
 }
 
@@ -144,12 +120,8 @@ export async function verifyOtp({ phone, challenge, code }) {
     return false;
   }
 
-  if (challenge.provider === "twilio_verify") {
-    return twilioVerifyCheck(phone, code);
+  if (challenge.provider !== "twilio_verify") {
+    throw new Error("Unsupported OTP provider in challenge");
   }
-
-  if (!challenge.code_hash) {
-    return false;
-  }
-  return hashCode(code) === challenge.code_hash;
+  return twilioVerifyCheck(phone, code);
 }

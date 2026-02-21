@@ -5,6 +5,8 @@ import { getTokenById } from "../../services/assets.catalog.js";
 import { getYieldAssetById } from "../../services/yield.catalog.js";
 import { getYieldAssets, buildYieldQuote, solveYieldQuote } from "../../services/yield.service.js";
 import { formatBalanceRow, parseAmountToAtomic } from "../../utils/amounts.js";
+import { verifyYieldTransitionTx } from "../../services/aleo.feature.tx.service.js";
+import { isOnchainLedgerMode } from "../../services/onchain.mode.service.js";
 
 function parseLimit(rawLimit, fallback = 25, max = 200) {
   const parsed = Number(rawLimit);
@@ -133,6 +135,7 @@ export async function yieldGetAssets(req, res, url) {
       userId: auth.user.id,
       tokenId: tokenId || undefined,
     });
+    const onchainLedger = isOnchainLedgerMode();
 
     sendJson(res, 200, {
       success: true,
@@ -140,6 +143,7 @@ export async function yieldGetAssets(req, res, url) {
       positions: (payload.positions || []).map(mapPosition),
       quotes: (payload.quotes || []).map(mapQuoteRow),
       actions: (payload.actions || []).map(mapActionRow),
+      ledgerMode: onchainLedger ? "onchain_canonical" : "backend_simulated",
     });
   } catch (error) {
     sendJson(res, 400, { success: false, error: error.message });
@@ -179,21 +183,75 @@ export async function yieldSolve(req, res) {
     const body = await readJsonBody(req);
     const quoteId = String(body.quoteId || "").trim();
     const aleoTxId = body.aleoTxId ? String(body.aleoTxId) : null;
+    const aleoTxIds = Array.isArray(body.aleoTxIds)
+      ? body.aleoTxIds.map((v) => String(v || "").trim()).filter(Boolean)
+      : [];
 
     if (!quoteId) {
       return sendJson(res, 400, { success: false, error: "quoteId is required" });
+    }
+    if (!aleoTxId && aleoTxIds.length === 0) {
+      return sendJson(res, 400, {
+        success: false,
+        error: "aleoTxId or aleoTxIds[] is required for on-chain-confirmed yield settlement",
+      });
     }
 
     const quote = appDb.getYieldQuoteById(quoteId);
     if (!quote || quote.user_id !== auth.user.id) {
       return sendJson(res, 404, { success: false, error: "Yield quote not found" });
     }
+    const plan = safeJson(quote.plan_json, {});
+    const plannedTransitions = Array.isArray(plan?.transitions) ? plan.transitions : [];
+    if (plannedTransitions.length === 0) {
+      return sendJson(res, 422, {
+        success: false,
+        error: "Yield quote has no transition plan to verify",
+      });
+    }
 
-    const result = solveYieldQuote({
-      userId: auth.user.id,
-      quote,
-      aleoTxId,
-    });
+    const txIdsToVerify = aleoTxIds.length > 0 ? aleoTxIds : [aleoTxId];
+    if (txIdsToVerify.length !== plannedTransitions.length) {
+      return sendJson(res, 400, {
+        success: false,
+        error: `Yield solve requires ${plannedTransitions.length} confirmed Aleo tx ids matching the quote transitions`,
+      });
+    }
+
+    for (let index = 0; index < plannedTransitions.length; index += 1) {
+      const transition = plannedTransitions[index] || {};
+      const txId = txIdsToVerify[index];
+      await verifyYieldTransitionTx({
+        txId,
+        walletAddress: auth.user.wallet_address,
+        programId: transition.programId,
+        functionName: transition.functionName,
+      });
+    }
+
+    const onchainLedger = isOnchainLedgerMode();
+    const result = onchainLedger
+      ? (() => {
+          const action = appDb.createYieldAction({
+            userId: auth.user.id,
+            quoteId: quote.id,
+            action: plan.action || quote.action,
+            status: "onchain_confirmed",
+            aleoTxId: txIdsToVerify[txIdsToVerify.length - 1],
+            planJson: quote.plan_json,
+          });
+          return {
+            action,
+            plan,
+            positions: [],
+            balances: [],
+          };
+        })()
+      : solveYieldQuote({
+          userId: auth.user.id,
+          quote,
+          aleoTxId: txIdsToVerify[txIdsToVerify.length - 1],
+        });
 
     sendJson(res, 200, {
       success: true,
@@ -201,9 +259,15 @@ export async function yieldSolve(req, res) {
       plan: result.plan,
       positions: (result.positions || []).map(mapPosition),
       balances: (result.balances || []).map(formatBalanceRow),
+      ledgerMode: onchainLedger ? "onchain_canonical" : "backend_simulated",
     });
   } catch (error) {
-    sendJson(res, 400, { success: false, error: error.message });
+    sendJson(res, error?.statusCode || 400, {
+      success: false,
+      error: error.message,
+      ...(error?.txState ? { txState: error.txState } : {}),
+      ...(error?.rawStatus ? { txStatus: error.rawStatus } : {}),
+    });
   }
 }
 

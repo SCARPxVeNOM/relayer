@@ -15,32 +15,30 @@
   --shadow-neon-orange: 0 0 20px rgba(255, 77, 0, 0.4);
   --shadow-neon-cyan: 0 0 20px rgba(0, 255, 255, 0.4);
 
-  --radius-lg: 0px;
-  --radius-md: 0px;
-  --radius-sm: 0px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 2%;
+    --background: 210 15% 6%;
     --foreground: 0 0% 100%;
     --primary: 18 100% 50%;
-    /* SpaceX Orange #FF4D00 */
     --secondary: 190 100% 50%;
-    /* Aleo Cyan */
     --accent: 0 0% 100%;
-    --muted: 0 0% 10%;
-    --border: 0 0% 15%;
-    --radius: 0rem;
-    /* Absolute Sharpness */
+    --muted: 210 10% 12%;
+    --border: 210 12% 18%;
+    --radius: 0.5rem;
   }
 
   body {
-    @apply bg-[#020202] text-white antialiased font-mono;
+    @apply text-white antialiased;
+    font-family: "Space Grotesk", "Sora", "Segoe UI", sans-serif;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 32px 32px;
+      radial-gradient(circle at 15% 15%, rgba(255, 77, 0, 0.12), transparent 35%),
+      radial-gradient(circle at 80% 20%, rgba(0, 255, 255, 0.08), transparent 35%),
+      linear-gradient(180deg, #07090d 0%, #05060a 100%);
   }
 }
 

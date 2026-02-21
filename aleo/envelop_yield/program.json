@@ -1,7 +1,7 @@
 {
   "program": "envelop_yield.aleo",
   "version": "0.1.0",
-  "description": "Private yield staking, claiming, and rebalance receipts for Envelop",
+  "description": "Private yield staking with on-chain vault, position, claim, and rebalance accounting transitions for Envelop",
   "license": "MIT",
   "leo": "3.4.0",
   "dependencies": null,

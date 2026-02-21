@@ -4,7 +4,8 @@ $programs = @(
   "aleo\envelop_swap",
   "aleo\envelop_invoice",
   "aleo\envelop_payments",
-  "aleo\envelop_yield"
+  "aleo\envelop_yield",
+  "aleo\envelop_identity_v2"
 )
 
 if (!(Test-Path ".env")) {

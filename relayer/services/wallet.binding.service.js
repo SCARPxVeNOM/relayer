@@ -34,8 +34,6 @@ export async function getOrCreateBoundWallet(userId, pin) {
     },
   });
 
-  appDb.ensureInitialBalances(userId);
-
   return {
     address,
     created: true,
@@ -60,4 +58,3 @@ async function createWalletMaterial() {
     };
   }
 }
-

@@ -6,6 +6,11 @@
   "main": "relayer/index.js",
   "scripts": {
     "start": "node relayer/index.js",
+    "backend": "node relayer/index.js",
+    "frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -k -n backend,frontend -c blue,green \"npm run backend\" \"npm run frontend\"",
+    "clean:deps": "node -e \"const fs=require('fs');['node_modules','frontend/node_modules'].forEach(d=>fs.rmSync(d,{recursive:true,force:true}));console.log('Removed node_modules folders')\"",
+    "fresh:start": "npm run clean:deps && npm install && npm --prefix frontend install && npm run dev",
     "relayer": "node relayer/index.js",
     "check:leo": "node scripts/check-leo.js",
     "deploy:aleo": "node scripts/deploy-aleo.js",
@@ -23,11 +28,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@simplewebauthn/server": "^10.0.1",
     "@provablehq/sdk": "^0.7.0",
     "better-sqlite3": "^11.6.0",
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0"
+    "@types/node": "^20.10.0",
+    "concurrently": "^9.2.1"
   }
 }

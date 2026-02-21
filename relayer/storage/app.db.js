@@ -18,6 +18,35 @@ function randomId(prefix) {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
 }
 
+function normalizeUsername(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!/^[a-z0-9_]{3,32}$/.test(normalized)) {
+    throw new Error("username must be 3-32 chars using lowercase letters, numbers, and underscore");
+  }
+  return normalized;
+}
+
+function normalizeDisplayName(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (normalized.length < 2 || normalized.length > 64) {
+    throw new Error("displayName must be 2-64 characters");
+  }
+  return normalized;
+}
+
+function normalizeWalletAddress(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized.startsWith("aleo1")) {
+    throw new Error("walletAddress must start with aleo1");
+  }
+  return normalized;
+}
+
 class AppDatabase {
   constructor() {
     const dbPath = process.env.APP_DB_PATH || path.join(__dirname, "../../data/app.db");
@@ -40,7 +69,24 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         phone TEXT NOT NULL UNIQUE,
         wallet_address TEXT,
+        username TEXT,
+        display_name TEXT,
+        username_claim_tx_id TEXT,
+        username_claimed_at INTEGER,
         created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS identity_claims (
+        username TEXT PRIMARY KEY,
+        username_hash TEXT NOT NULL,
+        display_name_hash TEXT NOT NULL,
+        display_name TEXT,
+        wallet_address TEXT NOT NULL,
+        claim_tx_id TEXT NOT NULL UNIQUE,
+        program_id TEXT NOT NULL,
+        function_name TEXT NOT NULL,
+        claimed_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
 
@@ -85,6 +131,32 @@ class AppDatabase {
         attempts INTEGER NOT NULL,
         expires_at INTEGER NOT NULL,
         created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS passkey_challenges (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER,
+        username TEXT,
+        purpose TEXT NOT NULL,
+        challenge TEXT NOT NULL,
+        status TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS passkey_credentials (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        username TEXT NOT NULL,
+        credential_id TEXT NOT NULL UNIQUE,
+        public_key_b64 TEXT NOT NULL,
+        counter INTEGER NOT NULL,
+        transports_json TEXT,
+        backed_up INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
       );
 
       CREATE TABLE IF NOT EXISTS asset_balances (
@@ -178,6 +250,7 @@ class AppDatabase {
         sender_user_id INTEGER NOT NULL,
         recipient_user_id INTEGER,
         recipient_phone TEXT,
+        recipient_username TEXT,
         recipient_address TEXT,
         token_id TEXT NOT NULL,
         amount_atomic TEXT NOT NULL,
@@ -196,6 +269,7 @@ class AppDatabase {
         creator_address TEXT NOT NULL,
         recipient_user_id INTEGER,
         recipient_phone TEXT,
+        recipient_username TEXT,
         recipient_address TEXT,
         token_id TEXT NOT NULL,
         amount_atomic TEXT NOT NULL,
@@ -225,10 +299,16 @@ class AppDatabase {
       );
 
       CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_identity_claims_wallet_unique ON identity_claims(wallet_address);
+      CREATE INDEX IF NOT EXISTS idx_identity_claims_username_hash ON identity_claims(username_hash);
+      CREATE INDEX IF NOT EXISTS idx_identity_claims_claimed_at ON identity_claims(claimed_at);
       CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
       CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_challenges(phone);
       CREATE INDEX IF NOT EXISTS idx_wallet_auth_expires ON wallet_auth_challenges(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_passkey_challenges_expires ON passkey_challenges(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_passkey_credentials_user ON passkey_credentials(user_id);
+      CREATE INDEX IF NOT EXISTS idx_passkey_credentials_username ON passkey_credentials(username);
       CREATE INDEX IF NOT EXISTS idx_yield_positions_user ON yield_positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_yield_quotes_user ON yield_quotes(user_id);
       CREATE INDEX IF NOT EXISTS idx_yield_quotes_expires ON yield_quotes(expires_at);
@@ -241,9 +321,17 @@ class AppDatabase {
     `);
 
     // Lightweight migrations for existing local DBs.
+    this.ensureColumn("users", "username", "TEXT");
+    this.ensureColumn("users", "display_name", "TEXT");
+    this.ensureColumn("users", "username_claim_tx_id", "TEXT");
+    this.ensureColumn("users", "username_claimed_at", "INTEGER");
+    this.ensureColumn("payments", "recipient_username", "TEXT");
+    this.ensureColumn("invoices", "recipient_username", "TEXT");
     this.ensureColumn("invoices", "create_aleo_tx_id", "TEXT");
+    this.db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username) WHERE username IS NOT NULL`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_recipient_username ON payments(recipient_username)`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_invoices_recipient_username ON invoices(recipient_username)`);
 
-    this.seedSwapPools();
     this.initialized = true;
     logger.info("App database initialized");
   }
@@ -273,6 +361,7 @@ class AppDatabase {
     this.run(`DELETE FROM auth_sessions WHERE expires_at <= ?`, [ts]);
     this.run(`DELETE FROM otp_challenges WHERE expires_at <= ? AND status != 'verified'`, [ts]);
     this.run(`DELETE FROM wallet_auth_challenges WHERE expires_at <= ? AND status != 'verified'`, [ts]);
+    this.run(`DELETE FROM passkey_challenges WHERE expires_at <= ? AND status != 'used'`, [ts]);
     this.run(`DELETE FROM yield_quotes WHERE expires_at <= ?`, [ts]);
     this.run(`DELETE FROM swap_quotes WHERE expires_at <= ?`, [ts]);
   }
@@ -327,6 +416,98 @@ class AppDatabase {
     this.run(`UPDATE wallet_auth_challenges SET attempts = attempts + 1 WHERE id = ?`, [id]);
   }
 
+  createPasskeyChallenge({ userId, username, purpose, challenge, expiresAt }) {
+    const id = randomId("pkc");
+    this.run(
+      `
+      INSERT INTO passkey_challenges
+      (id, user_id, username, purpose, challenge, status, expires_at, created_at)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+      `,
+      [id, userId || null, username || null, purpose, challenge, expiresAt, now()]
+    );
+    return id;
+  }
+
+  getPasskeyChallenge(id) {
+    return this.get(`SELECT * FROM passkey_challenges WHERE id = ?`, [id]);
+  }
+
+  markPasskeyChallengeUsed(id) {
+    this.run(`UPDATE passkey_challenges SET status = 'used' WHERE id = ?`, [id]);
+  }
+
+  createOrUpdatePasskeyCredential({
+    userId,
+    username,
+    credentialId,
+    publicKeyB64,
+    counter,
+    transportsJson,
+    backedUp,
+  }) {
+    const existing = this.get(`SELECT id, created_at FROM passkey_credentials WHERE credential_id = ?`, [
+      credentialId,
+    ]);
+    const ts = now();
+    const id = existing?.id || randomId("pkcred");
+    this.run(
+      `
+      INSERT INTO passkey_credentials
+      (id, user_id, username, credential_id, public_key_b64, counter, transports_json, backed_up, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(credential_id)
+      DO UPDATE SET
+        user_id = excluded.user_id,
+        username = excluded.username,
+        public_key_b64 = excluded.public_key_b64,
+        counter = excluded.counter,
+        transports_json = excluded.transports_json,
+        backed_up = excluded.backed_up,
+        updated_at = excluded.updated_at
+      `,
+      [
+        id,
+        userId,
+        username,
+        credentialId,
+        publicKeyB64,
+        Number(counter || 0),
+        transportsJson || null,
+        backedUp ? 1 : 0,
+        existing?.created_at || ts,
+        ts,
+      ]
+    );
+    return this.get(`SELECT * FROM passkey_credentials WHERE credential_id = ?`, [credentialId]);
+  }
+
+  getPasskeyCredentialByCredentialId(credentialId) {
+    return this.get(`SELECT * FROM passkey_credentials WHERE credential_id = ?`, [credentialId]);
+  }
+
+  listPasskeyCredentialsByUserId(userId) {
+    return this.all(
+      `
+      SELECT * FROM passkey_credentials
+      WHERE user_id = ?
+      ORDER BY created_at ASC
+      `,
+      [userId]
+    );
+  }
+
+  updatePasskeyCredentialCounter(credentialId, counter, backedUp = false) {
+    this.run(
+      `
+      UPDATE passkey_credentials
+      SET counter = ?, backed_up = ?, updated_at = ?
+      WHERE credential_id = ?
+      `,
+      [Number(counter || 0), backedUp ? 1 : 0, now(), credentialId]
+    );
+  }
+
   createOrGetUserByPhone(phone) {
     const existing = this.get(`SELECT * FROM users WHERE phone = ?`, [phone]);
     if (existing) {
@@ -339,7 +520,7 @@ class AppDatabase {
   }
 
   createOrGetUserByWalletAddress(address) {
-    const normalized = String(address || "").trim();
+    const normalized = normalizeWalletAddress(address);
     if (!normalized) {
       throw new Error("Wallet address is required");
     }
@@ -368,6 +549,18 @@ class AppDatabase {
     return this.get(`SELECT * FROM users WHERE wallet_address = ?`, [normalized]);
   }
 
+  createOrGetUserByPasskeyUsername(username) {
+    const normalized = normalizeUsername(username);
+    const syntheticPhone = `passkey:${normalized}`;
+    return this.createOrGetUserByPhone(syntheticPhone);
+  }
+
+  getUserByPasskeyUsername(username) {
+    const normalized = String(username || "").trim().toLowerCase();
+    if (!normalized) return null;
+    return this.getUserByPhone(`passkey:${normalized}`) || this.getUserByUsername(normalized);
+  }
+
   getUserById(userId) {
     return this.get(`SELECT * FROM users WHERE id = ?`, [userId]);
   }
@@ -377,7 +570,154 @@ class AppDatabase {
   }
 
   getUserByAddress(address) {
-    return this.get(`SELECT * FROM users WHERE wallet_address = ?`, [address]);
+    if (!address) return null;
+    try {
+      const normalized = normalizeWalletAddress(address);
+      return this.get(`SELECT * FROM users WHERE wallet_address = ?`, [normalized]);
+    } catch {
+      return null;
+    }
+  }
+
+  getUserByUsername(username) {
+    const normalized = normalizeUsername(username);
+    return this.get(`SELECT * FROM users WHERE username = ?`, [normalized]);
+  }
+
+  getIdentityClaimByUsername(username) {
+    const normalizedUsername = normalizeUsername(username);
+    return this.get(`SELECT * FROM identity_claims WHERE username = ?`, [normalizedUsername]);
+  }
+
+  getIdentityClaimByWalletAddress(walletAddress) {
+    if (!walletAddress) return null;
+    try {
+      const normalizedAddress = normalizeWalletAddress(walletAddress);
+      return this.get(`SELECT * FROM identity_claims WHERE wallet_address = ?`, [normalizedAddress]);
+    } catch {
+      return null;
+    }
+  }
+
+  upsertIdentityClaim({
+    username,
+    usernameHash,
+    displayNameHash,
+    displayName,
+    walletAddress,
+    claimTxId,
+    programId,
+    functionName,
+    claimedAt,
+  }) {
+    const normalizedUsername = normalizeUsername(username);
+    const normalizedAddress = normalizeWalletAddress(walletAddress);
+    const normalizedDisplayName = normalizeDisplayName(displayName) || normalizedUsername;
+    const normalizedClaimTxId = String(claimTxId || "").trim();
+    const normalizedProgramId = String(programId || "").trim();
+    const normalizedFunctionName = String(functionName || "").trim();
+    const normalizedUsernameHash = String(usernameHash || "").trim();
+    const normalizedDisplayNameHash = String(displayNameHash || "").trim();
+    if (!normalizedClaimTxId.startsWith("at1")) {
+      throw new Error("claimTxId must be a valid Aleo tx id");
+    }
+    if (!normalizedProgramId || !normalizedFunctionName) {
+      throw new Error("programId/functionName are required");
+    }
+    if (!normalizedUsernameHash || !normalizedDisplayNameHash) {
+      throw new Error("usernameHash/displayNameHash are required");
+    }
+
+    const ts = now();
+    const claimedAtTs = Number.isFinite(Number(claimedAt)) ? Number(claimedAt) : ts;
+    this.run(
+      `
+      INSERT INTO identity_claims
+      (username, username_hash, display_name_hash, display_name, wallet_address, claim_tx_id, program_id, function_name, claimed_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(username)
+      DO UPDATE SET
+        username_hash = excluded.username_hash,
+        display_name_hash = excluded.display_name_hash,
+        display_name = excluded.display_name,
+        wallet_address = excluded.wallet_address,
+        claim_tx_id = excluded.claim_tx_id,
+        program_id = excluded.program_id,
+        function_name = excluded.function_name,
+        claimed_at = excluded.claimed_at,
+        updated_at = excluded.updated_at
+      `,
+      [
+        normalizedUsername,
+        normalizedUsernameHash,
+        normalizedDisplayNameHash,
+        normalizedDisplayName,
+        normalizedAddress,
+        normalizedClaimTxId,
+        normalizedProgramId,
+        normalizedFunctionName,
+        claimedAtTs,
+        ts,
+      ]
+    );
+    return this.getIdentityClaimByUsername(normalizedUsername);
+  }
+
+  upsertUserProfile(userId, { username, displayName, usernameClaimTxId }) {
+    const current = this.getUserById(userId);
+    if (!current) {
+      const error = new Error("User not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const normalizedUsername = normalizeUsername(username);
+    const normalizedDisplayName = normalizeDisplayName(displayName) || normalizedUsername;
+    if (current.username && current.username !== normalizedUsername) {
+      const error = new Error("Username is already registered and cannot be changed");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const existing = this.get(
+      `SELECT id FROM users WHERE username = ? AND id != ?`,
+      [normalizedUsername, userId]
+    );
+    if (existing) {
+      const error = new Error("Username is already taken");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const shouldSetClaim = !current.username;
+    if (shouldSetClaim && !String(usernameClaimTxId || "").trim()) {
+      const error = new Error("usernameClaimTxId is required for first username registration");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const ts = now();
+    this.run(
+      `
+      UPDATE users
+      SET
+        username = ?,
+        display_name = ?,
+        username_claim_tx_id = CASE WHEN username IS NULL THEN ? ELSE username_claim_tx_id END,
+        username_claimed_at = CASE WHEN username IS NULL THEN ? ELSE username_claimed_at END,
+        updated_at = ?
+      WHERE id = ?
+      `,
+      [
+        normalizedUsername,
+        normalizedDisplayName,
+        shouldSetClaim ? String(usernameClaimTxId).trim() : null,
+        shouldSetClaim ? ts : null,
+        ts,
+        userId,
+      ]
+    );
+    return this.getUserById(userId);
   }
 
   getWalletBindingByUserId(userId) {
@@ -429,24 +769,7 @@ class AppDatabase {
   }
 
   ensureInitialBalances(userId) {
-    const defaults = [
-      { tokenId: "ALEO", amount: "100000000" },
-      { tokenId: "USDC", amount: "500000000" },
-      { tokenId: "WETH", amount: "3000000000000000000" },
-    ];
-
-    for (const asset of defaults) {
-      const exists = this.get(
-        `SELECT user_id FROM asset_balances WHERE user_id = ? AND token_id = ?`,
-        [userId, asset.tokenId]
-      );
-      if (!exists) {
-        this.run(
-          `INSERT INTO asset_balances (user_id, token_id, available_atomic, updated_at) VALUES (?, ?, ?, ?)`,
-          [userId, asset.tokenId, asset.amount, now()]
-        );
-      }
-    }
+    return this.listBalances(userId);
   }
 
   listBalances(userId) {
@@ -705,6 +1028,7 @@ class AppDatabase {
     senderUserId,
     recipientUserId,
     recipientPhone,
+    recipientUsername,
     recipientAddress,
     tokenId,
     amountAtomic,
@@ -717,14 +1041,15 @@ class AppDatabase {
     this.run(
       `
       INSERT INTO payments
-      (id, sender_user_id, recipient_user_id, recipient_phone, recipient_address, token_id, amount_atomic, note, status, aleo_tx_id, created_at, paid_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, sender_user_id, recipient_user_id, recipient_phone, recipient_username, recipient_address, token_id, amount_atomic, note, status, aleo_tx_id, created_at, paid_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         id,
         senderUserId,
         recipientUserId || null,
         recipientPhone || null,
+        recipientUsername || null,
         recipientAddress || null,
         tokenId,
         amountAtomic.toString(),
@@ -738,7 +1063,24 @@ class AppDatabase {
     return this.get(`SELECT * FROM payments WHERE id = ?`, [id]);
   }
 
-  listPayments(userId, limit = 100) {
+  listPayments(userOrId, limit = 100) {
+    if (userOrId && typeof userOrId === "object") {
+      const user = userOrId;
+      return this.all(
+        `
+        SELECT * FROM payments
+        WHERE sender_user_id = ?
+           OR recipient_user_id = ?
+           OR recipient_phone = ?
+           OR recipient_username = ?
+           OR recipient_address = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+        `,
+        [user.id, user.id, user.phone || "", user.username || "", user.wallet_address || "", limit]
+      );
+    }
+    const userId = userOrId;
     return this.all(
       `
       SELECT * FROM payments
@@ -755,6 +1097,7 @@ class AppDatabase {
     creatorAddress,
     recipientUserId,
     recipientPhone,
+    recipientUsername,
     recipientAddress,
     tokenId,
     amountAtomic,
@@ -767,8 +1110,8 @@ class AppDatabase {
     this.run(
       `
       INSERT INTO invoices
-      (id, creator_user_id, creator_address, recipient_user_id, recipient_phone, recipient_address, token_id, amount_atomic, memo, due_at, create_aleo_tx_id, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+      (id, creator_user_id, creator_address, recipient_user_id, recipient_phone, recipient_username, recipient_address, token_id, amount_atomic, memo, due_at, create_aleo_tx_id, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
       `,
       [
         id,
@@ -776,6 +1119,7 @@ class AppDatabase {
         creatorAddress,
         recipientUserId || null,
         recipientPhone || null,
+        recipientUsername || null,
         recipientAddress || null,
         tokenId,
         amountAtomic.toString(),
@@ -796,11 +1140,12 @@ class AppDatabase {
       WHERE creator_user_id = ?
          OR recipient_user_id = ?
          OR recipient_phone = ?
+         OR recipient_username = ?
          OR recipient_address = ?
       ORDER BY created_at DESC
       LIMIT 200
       `,
-      [user.id, user.id, user.phone, user.wallet_address || ""]
+      [user.id, user.id, user.phone, user.username || "", user.wallet_address || ""]
     );
   }
 
@@ -859,39 +1204,7 @@ class AppDatabase {
   }
 
   seedSwapPools() {
-    const nowTs = now();
-    const defaults = [
-      {
-        pairId: "ALEO_USDC",
-        tokenA: "ALEO",
-        tokenB: "USDC",
-        reserveAAtomic: "500000000000",
-        reserveBAtomic: "750000000000",
-        feeBps: 30,
-      },
-      {
-        pairId: "ALEO_WETH",
-        tokenA: "ALEO",
-        tokenB: "WETH",
-        reserveAAtomic: "900000000000",
-        reserveBAtomic: "120000000000000000000",
-        feeBps: 30,
-      },
-    ];
-
-    for (const p of defaults) {
-      const exists = this.get(`SELECT pair_id FROM swap_pools WHERE pair_id = ?`, [p.pairId]);
-      if (!exists) {
-        this.run(
-          `
-          INSERT INTO swap_pools
-          (pair_id, token_a, token_b, reserve_a_atomic, reserve_b_atomic, fee_bps, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          `,
-          [p.pairId, p.tokenA, p.tokenB, p.reserveAAtomic, p.reserveBAtomic, p.feeBps, nowTs]
-        );
-      }
-    }
+    return;
   }
 
   ensureColumn(table, column, definition) {
