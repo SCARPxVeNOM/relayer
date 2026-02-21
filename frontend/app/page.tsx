@@ -36,7 +36,7 @@ export default function HomePage() {
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center lg:h-full">
         <section className="space-y-6">
           <p className="text-xs uppercase tracking-[0.3em] text-primary font-bold">
-            Aleo Private Finance
+            Dive In and Take Off !
           </p>
           <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tight leading-[0.95]">
             <span className="home-swap-word-live" aria-label={SWAP_WORD_VARIANTS[swapWordIndex]}>
