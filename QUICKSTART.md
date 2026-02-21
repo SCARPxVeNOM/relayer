@@ -38,7 +38,7 @@ Runs on `http://localhost:3000`.
 3. Register your username (creates an on-chain `envelop_identity_v2.aleo/register_username` tx)
 4. Start using balances, swaps, payments, invoices, and yield
 
-If `OTP_PROVIDER=mock`, backend returns `devCode` in the OTP send response for local testing.
+If you are not using OTP fallback, keep `OTP_PROVIDER=disabled`.
 
 ## 6. Non-mock blind relay
 

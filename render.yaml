@@ -11,6 +11,12 @@ services:
         value: production
       - key: PORT
         value: 3001
+      - key: OTP_PROVIDER
+        value: disabled
+      - key: WALLET_AUTH_STRICT
+        value: "true"
+      - key: WALLET_ENCRYPTION_PEPPER
+        sync: false # Set a strong secret in Render dashboard
       - key: ALEO_PRIVATE_KEY
         sync: false # Set this manually in Render dashboard
       - key: RELAYER_PK
@@ -25,5 +31,19 @@ services:
         value: https://api.explorer.provable.com/v1/testnet/transaction/broadcast
       - key: ALEO_RELAY_PAYLOAD_MODE
         value: raw
+      - key: ENFORCE_ONCHAIN_LEDGER
+        value: "true"
+      - key: IDENTITY_REQUIRE_ONCHAIN_RECIPIENT
+        value: "true"
+      - key: ALEO_IDENTITY_PROGRAM_ID
+        value: envelop_identity_v2.aleo
+      - key: ALEO_IDENTITY_REGISTER_FUNCTION
+        value: register_username
+      - key: APP_DB_PATH
+        value: /var/data/app.db
       - key: LEO_PATH
-        value: /root/.cargo/bin/leo
+        value: /usr/local/bin/leo
+    disk:
+      name: app-data
+      mountPath: /var/data
+      sizeGB: 1

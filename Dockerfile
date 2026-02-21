@@ -31,10 +31,6 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p /tmp
 
-# Build the Leo programs
-RUN cd aleo/advance_privacy && leo build || echo "Leo build failed for advance_privacy" && \
-    cd ../privacy_barrier && leo build || echo "Leo build failed for privacy_barrier"
-
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3001

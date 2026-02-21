@@ -3,7 +3,7 @@
 Envelop is an Aleo-native private fintech app with:
 
 - Passkey (WebAuthn) + PIN onboarding (recommended)
-- WhatsApp OTP onboarding fallback
+- Wallet signature onboarding
 - Backend shielded wallet binding (encrypted key storage)
 - Private asset management for `ALEO` + ARC-21 style assets
 - Private swap flow with explicit quotes/rates
@@ -114,7 +114,7 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env.local
 ```
 
-For WhatsApp OTP on Twilio Verify, set:
+If you want optional WhatsApp OTP fallback, set:
 
 - `OTP_PROVIDER=twilio_verify`
 - `TWILIO_ACCOUNT_SID`
@@ -127,7 +127,7 @@ For Passkey/WebAuthn, set:
 - `PASSKEY_RP_ID` (usually your domain)
 - `PASSKEY_EXPECTED_ORIGINS` (comma-separated allowed origins)
 
-`OTP_PROVIDER=mock` is only for local development and is blocked in production.
+If you are not using OTP fallback, keep `OTP_PROVIDER=disabled`.
 
 ### 3. Run
 

@@ -9,11 +9,34 @@ function isTruthy(value) {
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
+function normalizedOtpProvider() {
+  const provider = String(process.env.OTP_PROVIDER || "disabled")
+    .trim()
+    .toLowerCase();
+  if (!provider || provider === "off" || provider === "none") {
+    return "disabled";
+  }
+  return provider;
+}
+
 function validateProductionSecurityConfig() {
   const problems = [];
-  const otpProvider = String(process.env.OTP_PROVIDER || "").toLowerCase();
-  if (otpProvider !== "twilio_verify") {
-    problems.push("OTP_PROVIDER must be twilio_verify");
+  const otpProvider = normalizedOtpProvider();
+
+  if (otpProvider !== "disabled" && otpProvider !== "twilio_verify") {
+    problems.push("OTP_PROVIDER must be disabled or twilio_verify");
+  }
+
+  if (otpProvider === "twilio_verify") {
+    if (!process.env.TWILIO_ACCOUNT_SID) {
+      problems.push("TWILIO_ACCOUNT_SID is required when OTP_PROVIDER=twilio_verify");
+    }
+    if (!process.env.TWILIO_AUTH_TOKEN) {
+      problems.push("TWILIO_AUTH_TOKEN is required when OTP_PROVIDER=twilio_verify");
+    }
+    if (!process.env.TWILIO_VERIFY_SERVICE_SID) {
+      problems.push("TWILIO_VERIFY_SERVICE_SID is required when OTP_PROVIDER=twilio_verify");
+    }
   }
 
   const isProduction = String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -46,7 +69,7 @@ async function main() {
     validateProductionSecurityConfig();
     logger.info("Starting Envelop Aleo Fintech backend", {
       port: process.env.PORT || process.env.HEALTH_PORT || "3001",
-      otpProvider: process.env.OTP_PROVIDER || "unset",
+      otpProvider: normalizedOtpProvider(),
       walletAuthStrict: String(process.env.WALLET_AUTH_STRICT || "false"),
       relayMode: process.env.ALEO_RELAY_SUBMIT_URL ? "network_submit" : "client_txid_only",
     });

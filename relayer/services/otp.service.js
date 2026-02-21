@@ -25,13 +25,16 @@ export function normalizePhone(input) {
 }
 
 function otpProvider() {
-  const provider = String(process.env.OTP_PROVIDER || "").toLowerCase();
+  const provider = String(process.env.OTP_PROVIDER || "disabled")
+    .trim()
+    .toLowerCase();
+  if (!provider || provider === "off" || provider === "none" || provider === "disabled") {
+    return "disabled";
+  }
   if (provider === "twilio_verify") {
     return "twilio_verify";
   }
-  throw new Error(
-    "OTP provider is not configured. Set OTP_PROVIDER=twilio_verify with Twilio Verify credentials."
-  );
+  throw new Error("Unsupported OTP provider. Supported values: disabled, twilio_verify.");
 }
 
 async function twilioVerifySend(phone) {
@@ -106,6 +109,9 @@ async function twilioVerifyCheck(phone, code) {
 
 export async function sendOtp({ phone }) {
   const provider = otpProvider();
+  if (provider === "disabled") {
+    throw new Error("OTP onboarding is disabled. Use wallet or passkey sign-in.");
+  }
   const result = await twilioVerifySend(phone);
   return {
     provider,

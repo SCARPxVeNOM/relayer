@@ -41,7 +41,7 @@ function uptimeInfo() {
 
 function runtimeTelemetry() {
   const nodeEnv = String(process.env.NODE_ENV || "development");
-  const otpProvider = String(process.env.OTP_PROVIDER || "unset");
+  const otpProvider = String(process.env.OTP_PROVIDER || "disabled");
   const relayConfigured = Boolean(process.env.ALEO_RELAY_SUBMIT_URL);
   const network = String(process.env.ALEO_NETWORK || "testnet");
   return {
